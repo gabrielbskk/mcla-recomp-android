@@ -55,3 +55,9 @@ keys.*
 /scripts/smoke_run.ps1
 /scripts/sweep_stats.py
 /scripts/thread_profile.ps1
+
+# Android Gradle and CMake outputs
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/app/.cxx/

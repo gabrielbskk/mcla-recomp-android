@@ -16,7 +16,16 @@ index 9b3cdf5..48d1eac 100644
  elseif(UNIX AND NOT APPLE)
      if(REX_TARGET_PROCESSOR MATCHES "AMD64|x86_64")
          set(REX_PLATFORM "linux-amd64")
-@@ -242,6 +249,10 @@ endif()
+@@ -196,6 +203,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/rex_version.cmake)
+ rex_resolve_version(REXGLUE_FULL_VERSION
+     FLOOR_MAJOR ${PROJECT_VERSION_MAJOR}
+-    FLOOR_MINOR ${PROJECT_VERSION_MINOR})
++    FLOOR_MINOR ${PROJECT_VERSION_MINOR}
++    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ # Strip the -id trailer (if any) for the numeric-only version.
+ string(REGEX REPLACE "-.*$" "" REXGLUE_NUMERIC_VERSION "${REXGLUE_FULL_VERSION}")
+@@ -242,6 +250,10 @@ endif()
  
  # Third-party dependencies (vendored sources only)
  add_subdirectory(thirdparty)

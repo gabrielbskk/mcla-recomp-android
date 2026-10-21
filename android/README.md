@@ -23,6 +23,6 @@ export CMAKE=/path/to/cmake
 scripts/build_android.sh
 ```
 
-The configure preset targets `arm64-v8a`, Android API 26, Vulkan enabled, and D3D12 and Tracy disabled. The build does not package an APK. App lifecycle, game-data import, and APK packaging still need implementation and device testing.
+The configure preset targets `arm64-v8a`, Android API 26, Vulkan enabled, and D3D12 and Tracy disabled. `android/` now includes the SDLActivity Java layer, Gradle wrapper, manifest, and native-library packaging configuration. Once the game dump and Android SDK are available, the APK command is `./gradlew -p android :app:assembleRelease`; this has not been run. Game-data import into the app sandbox and device launch still need implementation and testing. No APK has been built or installed.
 
 The Android SDK patch is `patches/rexglue-v0.10.0-android-arm64.patch`, based directly on clean ReXGlue v0.10.0. It is separate from the desktop/PS5 patch series; do not stack those patches without rebasing overlapping files. The current Codespaces build uses this patch in `/tmp`.

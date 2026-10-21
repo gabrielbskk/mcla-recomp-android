@@ -1,0 +1,111 @@
+plugins {
+    id 'com.android.application'
+}
+
+def repoRoot = project.file('../..').canonicalFile
+def rexSdkPath = providers.gradleProperty('REXSDK_DIR')
+    .orElse(providers.environmentVariable('REXSDK_DIR')).getOrNull()
+if (!rexSdkPath) {
+    throw new GradleException('Set REXSDK_DIR to the Android-patched ReXGlue v0.10.0 tree.')
+}
+def rexSdk = file(rexSdkPath).canonicalFile
+if (!new File(rexSdk, 'CMakeLists.txt').isFile()) {
+    throw new GradleException("ReXGlue SDK source tree not found: ${rexSdk}")
+}
+def codegenPath = providers.environmentVariable('REXGLUE_CODEGEN').getOrNull()
+def codegenLibPath = providers.environmentVariable('REXGLUE_HOST_LIB_DIR').getOrNull()
+
+tasks.register('generateMclaRecomp') {
+    group = 'build'
+    description = 'Run host-native ReXGlue code generation for the local game dump.'
+    inputs.file(new File(repoRoot, 'mcla_manifest.toml'))
+    inputs.file(new File(repoRoot, 'game/default.xex'))
+    outputs.file(new File(repoRoot, 'generated/default/codegen.build.stamp'))
+    doLast {
+        if (!new File(repoRoot, 'game/default.xex').isFile()) {
+            throw new GradleException('Missing game/default.xex. Extract your own supported MCLA Complete Edition dump first.')
+        }
+        if (!codegenPath) {
+            throw new GradleException('Set REXGLUE_CODEGEN to the host-native Linux ReXGlue v0.10.0 executable.')
+        }
+        def codegen = file(codegenPath)
+        if (!codegen.canExecute()) {
+            throw new GradleException("Host ReXGlue code generator is not executable: ${codegen}")
+        }
+        def hostLibs = codegenLibPath ? file(codegenLibPath) : codegen.parentFile.parentFile.toPath().resolve('lib').toFile()
+        def priorLdPath = System.getenv('LD_LIBRARY_PATH')
+        exec {
+            executable codegen.absolutePath
+            args 'codegen', new File(repoRoot, 'mcla_manifest.toml').absolutePath
+            workingDir repoRoot
+            environment 'LD_LIBRARY_PATH', hostLibs.absolutePath + (priorLdPath ? ":${priorLdPath}" : '')
+        }
+    }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('generateMclaRecomp')
+}
+
+android {
+    namespace 'org.libsdl.app'
+    compileSdk 35
+    ndkVersion '30.0.16248370'
+
+    defaultConfig {
+        applicationId 'org.mcla.recomp'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0-experimental'
+
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_PLATFORM=android-26',
+                    '-DANDROID_STL=c++_shared',
+                    "-DREXSDK_DIR=${rexSdk.absolutePath}",
+                    '-DREXGLUE_USE_VULKAN=ON',
+                    '-DREXGLUE_USE_D3D12=OFF',
+                    '-DREXGLUE_ENABLE_TRACY=OFF',
+                    '-DPYTHON_EXECUTABLE=/usr/bin/python3'
+                targets 'mcla', 'rexgpu-xenos'
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = [new File(rexSdk, 'out/android-arm64')]
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('../../CMakeLists.txt')
+            version '3.31.6'
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
