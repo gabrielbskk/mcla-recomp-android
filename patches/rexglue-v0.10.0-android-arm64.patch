@@ -907,3 +907,33 @@ index 0000000..aac33f6
 +#endif
 +
 +#endif
+diff --git a/src/core/filesystem_posix.cpp b/src/core/filesystem_posix.cpp
+--- a/src/core/filesystem_posix.cpp
++++ b/src/core/filesystem_posix.cpp
+@@ -23,3 +23,5 @@
+ #if defined(__APPLE__)
+ #include <mach-o/dyld.h>
++#elif defined(__ANDROID__)
++#include <dlfcn.h>
+ #endif
+@@ -91,9 +93,18 @@
+   std::error_code ec;
+   std::filesystem::path canonical_path = std::filesystem::weakly_canonical(executable_path, ec);
+   return ec ? std::filesystem::path(executable_path) : canonical_path;
+-#else
++#elif defined(__ANDROID__)
++  // SDLActivity loads this code from libmain.so; report this shared library's
++  // directory so runtime-loaded GPU plugins can be found beside it.
++  static int module_anchor;
++  Dl_info info{};
++  if (dladdr(&module_anchor, &info) != 0 && info.dli_fname != nullptr) {
++    return info.dli_fname;
++  }
++  return {};
++#else
+   char buff[FILENAME_MAX] = "";
+   readlink("/proc/self/exe", buff, FILENAME_MAX);
+   std::string s(buff);
+   return s;
+ #endif
+ }
