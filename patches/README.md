@@ -42,3 +42,13 @@ Host render target path only (the default on both backends).
 ## rexglue-ffmpeg-ps5-config.patch
 
 FFmpeg selects a configuration header per platform. This adds `config_ps5_x86_64.h`, generated from the Linux x86-64 one with `HAVE_MALLOC_H`, `CONFIG_ICONV`, `HAVE_MEMALIGN`, `HAVE_SCHED_GETAFFINITY` and `HAVE_LINUX_PERF_EVENT_H` turned off, and selects it for `__PROSPERO__`.
+
+## Android ARM64 experimental patch
+
+For the in-progress Android target, start with a clean ReXGlue v0.10.0 source tree and apply `rexglue-v0.10.0-android-arm64.patch` from the MCLA repository root:
+
+```bash
+git apply ../../patches/rexglue-v0.10.0-android-arm64.patch
+```
+
+This Android patch is based on the unmodified SDK v0.10.0 tree and is separate from the existing desktop/PS5 patch series. Do not stack the desktop patches onto it without rebasing and validating overlaps.

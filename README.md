@@ -15,6 +15,7 @@ Static recompilation of *Midnight Club: Los Angeles Complete Edition* (Xbox 360,
 | Windows, Direct3D 12 | Plays: career, races, garage and upgrades, with audio and a controller, at 30 FPS by default. |
 | Windows, Vulkan | Reaches the title screen; not tested further. |
 | Linux, Vulkan | Builds and plays natively: free roam holds 30 FPS on an Intel Core Ultra 5 238V laptop (Mesa ANV). Tested by one user. |
+| Android ARM64, Vulkan (experimental) | The ReXGlue runtime and Xenos GPU plugin build for Android ARM64; full game code generation and launch remain pending. |
 | PS5 (jailbroken) | Plays at a steady 30 FPS on a PS5 Pro (firmware 13.42); the zoomed-out map runs at 20 to 25. Also installed from scratch and played on a PS5 Slim (firmware 12.70). |
 
 Car reflections are fixed on every renderer (cars no longer come out white with a glow at night):

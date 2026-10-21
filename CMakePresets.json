@@ -183,6 +183,23 @@
             "displayName": "macOS ARM64 RelWithDebInfo",
             "inherits": "mac-arm64-base",
             "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+        },
+        {
+            "name": "android-arm64-release",
+            "displayName": "Android ARM64 Release (Vulkan)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+                "ANDROID_ABI": "arm64-v8a",
+                "ANDROID_PLATFORM": "android-26",
+                "ANDROID_STL": "c++_shared",
+                "CMAKE_BUILD_TYPE": "Release",
+                "REXGLUE_USE_VULKAN": "ON",
+                "REXGLUE_ENABLE_TRACY": "OFF",
+                "REXGLUE_USE_D3D12": "OFF",
+                "REXSDK_DIR": "$env{REXSDK_DIR}"
+            }
         }
     ],
     "buildPresets": [
@@ -203,6 +220,7 @@
         { "name": "mac-amd64-relwithdebinfo", "configurePreset": "mac-amd64-relwithdebinfo" },
         { "name": "mac-arm64-debug", "configurePreset": "mac-arm64-debug" },
         { "name": "mac-arm64-release", "configurePreset": "mac-arm64-release" },
-        { "name": "mac-arm64-relwithdebinfo", "configurePreset": "mac-arm64-relwithdebinfo" }
+        { "name": "mac-arm64-relwithdebinfo", "configurePreset": "mac-arm64-relwithdebinfo" },
+        { "name": "android-arm64-release", "configurePreset": "android-arm64-release" }
     ]
 }

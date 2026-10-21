@@ -26,7 +26,12 @@ set(MCLA_SOURCES
     src/code_pointer_scan.cpp
 )
 
-if(WIN32)
+if(ANDROID)
+    # SDL3 Android loads libmain.so and enters through SDL_main.
+    add_library(mcla SHARED ${MCLA_SOURCES})
+    set_target_properties(mcla PROPERTIES OUTPUT_NAME main)
+    target_compile_definitions(mcla PRIVATE main=SDL_main)
+elseif(WIN32)
     add_executable(mcla WIN32 ${MCLA_SOURCES})
 else()
     add_executable(mcla ${MCLA_SOURCES})
