@@ -14,12 +14,16 @@ if (!new File(rexSdk, 'CMakeLists.txt').isFile()) {
 }
 def codegenPath = providers.environmentVariable('REXGLUE_CODEGEN').getOrNull()
 def codegenLibPath = providers.environmentVariable('REXGLUE_HOST_LIB_DIR').getOrNull()
+def pythonExecutable = providers.gradleProperty('PYTHON_EXECUTABLE').orElse(providers.environmentVariable('PYTHON_EXECUTABLE')).getOrNull()
 
+def gameXex = new File(repoRoot, 'game/default.xex')
 tasks.register('generateMclaRecomp') {
     group = 'build'
     description = 'Run host-native ReXGlue code generation for the local game dump.'
     inputs.file(new File(repoRoot, 'mcla_manifest.toml'))
-    inputs.file(new File(repoRoot, 'game/default.xex'))
+    if (gameXex.isFile()) {
+        inputs.file(gameXex)
+    }
     outputs.file(new File(repoRoot, 'generated/default/codegen.build.stamp'))
     doLast {
         if (!new File(repoRoot, 'game/default.xex').isFile()) {
@@ -66,11 +70,13 @@ android {
             cmake {
                 arguments '-DANDROID_PLATFORM=android-26',
                     '-DANDROID_STL=c++_shared',
+                    '-DREXGLUE_ENABLE_TRACY=OFF',
                     "-DREXSDK_DIR=${rexSdk.absolutePath}",
                     '-DREXGLUE_USE_VULKAN=ON',
-                    '-DREXGLUE_USE_D3D12=OFF',
-                    '-DREXGLUE_ENABLE_TRACY=OFF',
-                    '-DPYTHON_EXECUTABLE=/usr/bin/python3'
+                    '-DREXGLUE_USE_D3D12=OFF'
+                if (pythonExecutable) {
+                    arguments "-DPYTHON_EXECUTABLE=${pythonExecutable}"
+                }
                 targets 'mcla', 'rexgpu-xenos'
             }
         }
