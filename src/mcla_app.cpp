@@ -3,6 +3,9 @@
 #include "mcla_app.h"
 
 #include <filesystem>
+#if defined(__ANDROID__)
+#include <SDL3/SDL_system.h>
+#endif
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -37,6 +40,24 @@ void MclaApp::OnConfigurePaths(rex::PathConfig& paths) {
     }
     folder = folder.parent_path();
   }
+#if defined(__ANDROID__)
+  // SDL returns this app-specific storage; copy the extracted game to files/game/.
+  const char* storage_roots[] = {
+      SDL_GetAndroidExternalStoragePath(),
+      SDL_GetAndroidInternalStoragePath(),
+  };
+  for (const char* root : storage_roots) {
+    if (!root) {
+      continue;
+    }
+    const std::filesystem::path game_root = std::filesystem::path(root) / "game";
+    std::error_code error;
+    if (std::filesystem::exists(game_root / "default.xex", error)) {
+      paths.game_data_root = game_root;
+      return;
+    }
+  }
+#endif
 }
 
 void MclaApp::OnPreSetup(rex::RuntimeConfig& config) {
