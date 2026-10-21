@@ -23,6 +23,6 @@ export CMAKE=/path/to/cmake
 scripts/build_android.sh
 ```
 
-For Android, copy the full extracted game tree to Android/data/org.mcla.recomp/files/game/. The app searches that app-specific external and internal storage path; game data is not bundled in the APK. File-picker import and device launch still need implementation and testing. No APK has been built or installed.
+The configure preset targets arm64-v8a, Android API 26, Vulkan enabled, with D3D12 and Tracy disabled. The Android folder includes SDLActivity, Gradle, the manifest, and native-library packaging. After the game dump and Android SDK are available, run ./gradlew -p android :app:assembleRelease. Copy the full extracted game tree to Android/data/org.mcla.recomp/files/game/; the app searches that app-specific external and internal storage path. Game data is not bundled in the APK. File-picker import and device launch still need implementation and testing. No APK has been built or installed.
 
 The Android SDK patch is `patches/rexglue-v0.10.0-android-arm64.patch`, based directly on clean ReXGlue v0.10.0. It is separate from the desktop/PS5 patch series; do not stack those patches without rebasing overlapping files. The current Codespaces build uses this patch in `/tmp`.
