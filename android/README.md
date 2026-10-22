@@ -23,6 +23,21 @@ Place the extracted game files directly in `MLR`, or put the game tree in `MLR/g
 
 On Android 11 and newer, shared-storage scanning requires granting **Allow access to manage all files** in the Android settings page opened by the app. Return to the app after granting access; if it started before access was granted, close and reopen it. Keep the game files out of Git and do not distribute them with the APK.
 
+## Full-data XAPK
+
+The Android launcher can read a full-data OBB named `main.<versionCode>.org.mcla.recomp.obb`. On first launch it extracts the OBB into the app-owned `Android/data/org.mcla.recomp/files/game` directory before starting the native runtime. This avoids requiring broad storage access for an XAPK install. Existing data in `/MLR` remains supported and still requires **Allow access to manage all files** on Android 11 and newer.
+
+To create a private XAPK from a signed APK and your own extracted game files, run:
+
+```bash
+python3 scripts/package_android_xapk.py \
+  --apk android/app/build/outputs/apk/release/app-release.apk \
+  --game-dir game \
+  --output MCLA-Recomp-Android.xapk
+```
+
+XAPK is a third-party ZIP container, not an Android install format. Use an XAPK installer that installs the APK and places the declared OBB in `Android/obb/org.mcla.recomp/`. The first launch then prepares the game files. The output contains the supplied game data; keep it private and do not upload it to the public repository.
+
 ## In-game options
 
 Open the game's pause menu, then **Settings**:

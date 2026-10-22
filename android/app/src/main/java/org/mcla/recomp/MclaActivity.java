@@ -33,7 +33,7 @@ public final class MclaActivity extends SDLActivity {
             requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, REQUEST_NOTIFICATIONS);
             return;
         }
-        if (Build.VERSION.SDK_INT < 30 &&
+        if (Build.VERSION.SDK_INT < 30 && !hasAppOwnedGameData() &&
                 checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] {
                     Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -41,7 +41,32 @@ public final class MclaActivity extends SDLActivity {
             }, REQUEST_STORAGE);
             return;
         }
-        requestAllFilesAccess();
+        if (!hasAppOwnedGameData()) requestAllFilesAccess();
+    }
+
+    private boolean hasAppOwnedGameData() {
+        java.io.File externalFiles = getExternalFilesDir(null);
+        java.io.File[] roots = {
+                externalFiles == null ? null : new java.io.File(externalFiles, "game"),
+                new java.io.File(getFilesDir(), "game")
+        };
+        String[] required = {
+                "default.xex", "xarchive_cache.rpf", "xarchive_audio.rpf",
+                "xarchive_audlo.rpf", "xarchive_music.rpf"
+        };
+        for (java.io.File root : roots) {
+            if (root == null) continue;
+            boolean complete = true;
+            for (String name : required) {
+                java.io.File file = new java.io.File(root, name);
+                if (!file.isFile() || file.length() == 0) {
+                    complete = false;
+                    break;
+                }
+            }
+            if (complete) return true;
+        }
+        return false;
     }
 
     private void requestAllFilesAccess() {

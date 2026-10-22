@@ -22,9 +22,13 @@
         <activity
             android:name="org.mcla.recomp.MclaActivity"
             android:configChanges="layoutDirection|locale|grammaticalGender|fontScale|fontWeightAdjustment|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
-            android:exported="true"
+            android:exported="false"
             android:launchMode="singleInstance"
             android:preferMinimalPostProcessing="true"
+            android:screenOrientation="landscape" />
+        <activity
+            android:name="org.mcla.recomp.DataSetupActivity"
+            android:exported="true"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
