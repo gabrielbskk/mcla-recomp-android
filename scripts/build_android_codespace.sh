@@ -26,6 +26,10 @@ if [[ ! -f "${repo_root}/game/default.xex" ]]; then
     exit 1
 fi
 
+# Enable the SDK's existing primitive/fill fallbacks on Android GPUs that lack
+# optional geometryShader or fillModeNonSolid Vulkan features.
+python3 "${repo_root}/scripts/patch_android_rexglue.py" --sdk "${REXSDK_DIR}"
+
 cd "${repo_root}"
 gradle_args=(-p android :app:assembleRelease)
 

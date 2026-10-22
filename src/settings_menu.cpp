@@ -400,9 +400,9 @@ const ItemDef kDisplayItems[] = {
 // Detail the game can do without when the frame rate matters more; all as
 // shipped by default (src/perf_options.cpp). Rows marked NEXT START are read
 // by the game once, when it starts.
-constexpr double kDetailScales[] = {0.5, 0.75, 1.0};
-constexpr double kDensityScales[] = {0.0, 0.5, 0.75, 1.0};
-constexpr double kTrafficDistances[] = {250.0, 325.0, 400.0};
+constexpr double kDetailScales[] = {0.25, 0.5, 0.75, 1.0};
+constexpr double kDensityScales[] = {0.0, 0.25, 0.5, 0.75, 1.0};
+constexpr double kTrafficDistances[] = {150.0, 200.0, 250.0, 325.0, 400.0};
 
 const ItemDef kPerformanceItems[] = {
     {"PM_MxGraphicsPreset", ItemKind::kStringChoice, "mcla_graphics_preset", "GRAPHICS PRESET",
@@ -412,15 +412,15 @@ const ItemDef kPerformanceItems[] = {
     {"PM_MxShadows", ItemKind::kToggle, "mcla_shadows", "SHADOWS"},
     {"PM_MxFoliageShadows", ItemKind::kToggle, "mcla_foliage_shadows", "FOLIAGE SHADOWS"},
     {"PM_MxCityLod", ItemKind::kNumberChoice, "mcla_city_lod", "CITY DETAIL DISTANCE", nullptr,
-     nullptr, kDetailScales, 3, "%.2f"},
+     nullptr, kDetailScales, 4, "%.2f"},
     {"PM_MxTrafficLod", ItemKind::kNumberChoice, "mcla_traffic_lod", "TRAFFIC DETAIL DISTANCE",
-     nullptr, nullptr, kDetailScales, 3, "%.2f"},
+     nullptr, nullptr, kDetailScales, 4, "%.2f"},
     {"PM_MxTrafficDist", ItemKind::kNumberChoice, "mcla_traffic_distance", "TRAFFIC DISTANCE",
-     nullptr, nullptr, kTrafficDistances, 3, "%.0f"},
+     nullptr, nullptr, kTrafficDistances, 5, "%.0f"},
     {"PM_MxPeds", ItemKind::kNumberChoice, "mcla_pedestrians", "PEDESTRIANS", nullptr, nullptr,
-     kDensityScales, 4, "%.2g", "NONE"},
+     kDensityScales, 5, "%.2g", "NONE"},
     {"PM_MxParked", ItemKind::kNumberChoice, "mcla_parked_cars", "PARKED CARS", nullptr, nullptr,
-     kDensityScales, 4, "%.2g", "NONE"},
+     kDensityScales, 5, "%.2g", "NONE"},
     {"PM_MxRaceShadows", ItemKind::kToggle, "mcla_race_shadows", "RACE SHADOWS (NEXT START)"},
     {"PM_MxFastCarShadows", ItemKind::kToggle, "mcla_fast_car_shadows",
      "SIMPLE CAR SHADOWS (NEXT START)"},
@@ -512,9 +512,9 @@ std::atomic<bool> g_settings_dirty{false};
 void ApplyGraphicsPreset(const char* preset) {
   const bool performance = std::strcmp(preset, "performance") == 0;
   const bool balanced = std::strcmp(preset, "balanced") == 0;
-  const char* quality = performance ? "0.5" : balanced ? "0.75" : "1.0";
-  const char* density = performance ? "0.5" : balanced ? "0.75" : "1.0";
-  const char* traffic_distance = performance ? "250" : balanced ? "325" : "400";
+  const char* quality = performance ? "0.25" : balanced ? "0.75" : "1.0";
+  const char* density = performance ? "0.25" : balanced ? "0.75" : "1.0";
+  const char* traffic_distance = performance ? "150" : balanced ? "325" : "400";
 
   OptionSet("mcla_shadows", performance ? "false" : "true");
   OptionSet("mcla_race_shadows", performance ? "false" : "true");

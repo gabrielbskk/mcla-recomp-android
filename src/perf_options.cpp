@@ -42,17 +42,17 @@ REXCVAR_DEFINE_BOOL(mcla_fullscreen_blur, MCLA_DEFAULT(true, false), "MCLA",
                     "The full-screen blur pass (next start)");
 REXCVAR_DEFINE_BOOL(mcla_msaa, MCLA_DEFAULT(true, false), "MCLA",
                     "Multisample anti-aliasing (next start)");
-REXCVAR_DEFINE_DOUBLE(mcla_city_lod, MCLA_DEFAULT(1.0, 0.5), "MCLA",
+REXCVAR_DEFINE_DOUBLE(mcla_city_lod, MCLA_DEFAULT(1.0, 0.25), "MCLA",
                       "Scale of the distance at which the city switches to less detail")
     .range(0.1, 4.0);
-REXCVAR_DEFINE_DOUBLE(mcla_traffic_lod, MCLA_DEFAULT(1.0, 0.5), "MCLA",
+REXCVAR_DEFINE_DOUBLE(mcla_traffic_lod, MCLA_DEFAULT(1.0, 0.25), "MCLA",
                       "Scale of the distance at which traffic switches to less detail")
     .range(0.1, 4.0);
-REXCVAR_DEFINE_DOUBLE(mcla_traffic_distance, MCLA_DEFAULT(400.0, 250.0), "MCLA",
+REXCVAR_DEFINE_DOUBLE(mcla_traffic_distance, MCLA_DEFAULT(400.0, 150.0), "MCLA",
                       "Distance in metres beyond which ambient traffic is removed (400 as shipped)")
     .range(100.0, 600.0);
-REXCVAR_DEFINE_DOUBLE(mcla_pedestrians, MCLA_DEFAULT(1.0, 0.5), "MCLA", "Pedestrian density scale").range(0.0, 1.0);
-REXCVAR_DEFINE_DOUBLE(mcla_parked_cars, MCLA_DEFAULT(1.0, 0.5), "MCLA", "Parked car density scale").range(0.0, 1.0);
+REXCVAR_DEFINE_DOUBLE(mcla_pedestrians, MCLA_DEFAULT(1.0, 0.25), "MCLA", "Pedestrian density scale").range(0.0, 1.0);
+REXCVAR_DEFINE_DOUBLE(mcla_parked_cars, MCLA_DEFAULT(1.0, 0.25), "MCLA", "Parked car density scale").range(0.0, 1.0);
 
 // For measuring what an option is worth. The title screen's camera wanders, so
 // two runs never show the same scene; this switches the named option between
@@ -234,13 +234,13 @@ void SetReduced(const std::string& what, bool reduced) {
     rex::cvar::SetFlagByName("mcla_foliage_shadows", reduced ? "false" : "true");
   }
   if (all || what == "lod") {
-    rex::cvar::SetFlagByName("mcla_city_lod", reduced ? "0.5" : "1.0");
-    rex::cvar::SetFlagByName("mcla_traffic_lod", reduced ? "0.5" : "1.0");
+    rex::cvar::SetFlagByName("mcla_city_lod", reduced ? "0.25" : "1.0");
+    rex::cvar::SetFlagByName("mcla_traffic_lod", reduced ? "0.25" : "1.0");
   }
   if (all || what == "density") {
-    rex::cvar::SetFlagByName("mcla_traffic_distance", reduced ? "250" : "400");
-    rex::cvar::SetFlagByName("mcla_pedestrians", reduced ? "0.5" : "1.0");
-    rex::cvar::SetFlagByName("mcla_parked_cars", reduced ? "0.5" : "1.0");
+    rex::cvar::SetFlagByName("mcla_traffic_distance", reduced ? "150" : "400");
+    rex::cvar::SetFlagByName("mcla_pedestrians", reduced ? "0.25" : "1.0");
+    rex::cvar::SetFlagByName("mcla_parked_cars", reduced ? "0.25" : "1.0");
   }
 }
 

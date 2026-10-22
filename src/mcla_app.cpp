@@ -237,6 +237,16 @@ void MclaApp::OnPostInitLogging() {
 }
 
 void MclaApp::OnPreSetup(rex::RuntimeConfig& config) {
+#if defined(__ANDROID__)
+  // Avoid the scaled guest-clock path on Android. The SDK's vblank worker
+  // subtracts guest timestamps as unsigned values; using the monotonic host
+  // clock directly avoids the clock-rebase underflow documented upstream.
+  if (rex::cvar::SetFlagByName("clock_no_scaling", "true")) {
+    REXLOG_INFO("android: enabled monotonic guest clock to avoid vblank catch-up underflow");
+  } else {
+    REXLOG_WARN("android: could not enable monotonic guest clock mitigation");
+  }
+#endif
   config.audio_factory = &CreateMclaAudioSystem;
   if (config.gpu_plugin.empty()) {
     config.gpu_plugin = "xenos";

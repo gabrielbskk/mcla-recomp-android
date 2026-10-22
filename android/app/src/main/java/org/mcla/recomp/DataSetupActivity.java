@@ -46,6 +46,7 @@ public final class DataSetupActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        DiagnosticsExporter.exportPreviousSession(this);
         buildSetupScreen();
         action.setOnClickListener(view -> requestAccessOrPrepare());
     }
@@ -222,10 +223,26 @@ public final class DataSetupActivity extends Activity {
             obbDirectory = new File(Environment.getExternalStorageDirectory(),
                     "Android/obb/" + getPackageName());
         }
-        File current = new File(obbDirectory, "main.2." + getPackageName() + ".obb");
-        if (current.isFile()) return current;
-        File previous = new File(obbDirectory, "main.1." + getPackageName() + ".obb");
-        return previous.isFile() ? previous : null;
+        long versionCode;
+        try {
+            PackageManager packageManager = getPackageManager();
+            android.content.pm.PackageInfo packageInfo =
+                    packageManager.getPackageInfo(getPackageName(), 0);
+            versionCode = Build.VERSION.SDK_INT >= 28
+                    ? packageInfo.getLongVersionCode()
+                    : packageInfo.versionCode;
+        } catch (PackageManager.NameNotFoundException exception) {
+            versionCode = 1;
+        }
+
+        String packageName = getPackageName();
+        String[] supportedVersions = {Long.toString(versionCode), "2", "1"};
+        for (String supportedVersion : supportedVersions) {
+            File candidate = new File(obbDirectory,
+                    "main." + supportedVersion + "." + packageName + ".obb");
+            if (candidate.isFile()) return candidate;
+        }
+        return null;
     }
 
     private void extractExpansionFile(File obb, File destination) {

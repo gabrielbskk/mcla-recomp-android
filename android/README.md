@@ -7,7 +7,8 @@ This repository contains an experimental Android target for the C++ MCLA Recomp 
 - The APK builds and has been installed on a Samsung Galaxy S23 running Android 16.
 - The game found its data, initialized Vulkan on that device, and rendered the city scene.
 - Performance is still poor. This is a development build, not a stable release; no 30 FPS claim is made.
-- Only the S23 has been tested. Other Android devices and GPUs remain unverified.
+- A tester reported that the app did not open on a Mali-G52 device; no device log was supplied, so the cause is unknown. Mali-G57 and other GPUs remain unverified.
+- The current Android build enables Vulkan only. The Android build script enables ReXGlue's fallback paths when a GPU lacks optional geometry-shader or non-solid-fill features. The SDK version used here does not provide an OpenGL ES fallback, so ARM64 installation compatibility is not the same as GPU compatibility.
 
 ## Game files
 
@@ -51,6 +52,8 @@ Open the game's pause menu, then **Settings**:
 The Android game view includes an on-screen virtual gamepad: left stick for steering, RT/ LT for throttle and brake, A/B/X/Y, and START. The overlay hides after five seconds without touch. Touch the screen to reveal it again, or use the persistent PAD/HIDE button in the upper-right corner. Touch input is forwarded through SDL as a virtual gamepad, so the game uses the same input path as a physical controller.
 
 The Android native C++ targets use `-O3` for the `RelWithDebInfo` release configuration; Android Gradle selects that configuration for the current release variant. This may reduce CPU time, but FPS still needs to be measured on a device.
+
+On the next launch, the launcher exports the previous runtime's rotating log files and an Android process-exit report (including the system trace when available) to `Documents/MCLA Recomp`. The report includes device model, Android version, app version, and the prior process exit reason. Export failures do not block startup.
 
 The renderer currently follows the Android display surface. The ReXGlue resolution-scale controls only support 1x and higher, so this build does not expose a misleading 720p/downscaling option yet.
 

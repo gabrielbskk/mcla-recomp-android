@@ -39,6 +39,9 @@ constexpr uint32_t kStringPlatform = 0x8201ABDC;  // the game's own "platform" s
 std::atomic<uint32_t> g_platform_var{0};
 std::atomic<int> g_applied{-1};
 std::atomic<int> g_detected{0};
+#if defined(__ANDROID__)
+std::atomic<int64_t> g_next_prompt_poll_us{0};
+#endif
 
 #if defined(_WIN32)
 // True when a Sony controller (USB vendor 054C) is attached.
@@ -128,6 +131,20 @@ void MclaTickButtonPrompts() {
   if (!entry) {
     return;
   }
+#if defined(__ANDROID__)
+  // The option getter returns a string. Polling it every frame needlessly
+  // copies that string on the render thread; settings changes remain visible
+  // within 250 ms without allocating at the game's frame rate.
+  const int64_t now_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                             std::chrono::steady_clock::now().time_since_epoch())
+                             .count();
+  int64_t next_poll_us = g_next_prompt_poll_us.load(std::memory_order_relaxed);
+  if (now_us < next_poll_us ||
+      !g_next_prompt_poll_us.compare_exchange_strong(
+          next_poll_us, now_us + 250'000, std::memory_order_relaxed)) {
+    return;
+  }
+#endif
   const int want = WantedPlatform();
   if (want == g_applied.load(std::memory_order_relaxed)) {
     return;
