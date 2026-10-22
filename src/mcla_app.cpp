@@ -466,6 +466,9 @@ void MclaApp::OnPreSetup(rex::RuntimeConfig& config) {
 }
 
 void MclaApp::OnPostSetup() {
+#if defined(__ANDROID__)
+  MclaMigrateAndroidSettings();
+#endif
   ConfigureFrameTiming();
 #if defined(__ANDROID__)
   REXLOG_INFO(

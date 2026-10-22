@@ -37,6 +37,10 @@ REXCVAR_DEFINE_STRING(mcla_resolution, "540p", "MCLA",
                       "Guest resolution: 540p, 720p or 1080p (next start)");
 REXCVAR_DEFINE_STRING(mcla_graphics_preset, "performance", "MCLA",
                       "Graphics preset: performance, balanced or original");
+#if defined(__ANDROID__)
+REXCVAR_DEFINE_BOOL(mcla_performance_density_migrated, false, "MCLA",
+                    "Internal one-time migration for older Android performance settings");
+#endif
 REXCVAR_DEFINE_BOOL(mcla_settings_menu, true, "MCLA",
                     "Add the settings submenus to the pause menu");
 
@@ -932,6 +936,34 @@ bool NodeReachesList(uint32_t node, uint32_t list, int depth, int& budget) {
 }
 
 }  // namespace
+
+void MclaMigrateAndroidSettings() {
+#if defined(__ANDROID__)
+  if (REXCVAR_GET(mcla_performance_density_migrated)) {
+    return;
+  }
+
+  // Older Android builds used 0.25 ambient density in the Performance preset.
+  // New installs already default to zero; migrate only that known stale value
+  // so other user-selected density settings remain intact.
+  const std::string preset = OptionGet("mcla_graphics_preset");
+  if (preset == "performance") {
+    for (const char* option : {"mcla_pedestrians", "mcla_parked_cars"}) {
+      const std::string value = OptionGet(option);
+      char* end = nullptr;
+      const double parsed = std::strtod(value.c_str(), &end);
+      if (end != value.c_str() && *end == '\0' && parsed == 0.25) {
+        OptionSet(option, "0.0");
+        REXLOG_INFO("settings migration: reduced legacy Performance value for {}", option);
+      }
+    }
+  }
+
+  REXCVAR_SET(mcla_performance_density_migrated, true);
+  g_settings_dirty.store(true, std::memory_order_relaxed);
+  SaveSettingsIfChanged();
+#endif
+}
 
 // --- Hooks -------------------------------------------------------------------
 
