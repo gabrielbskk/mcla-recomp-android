@@ -44,7 +44,7 @@ XAPK is a third-party ZIP container, not an Android install format. Use an XAPK 
 
 Open the game's pause menu, then **Settings**:
 
-- **Display** includes the FPS counter toggle, frame-rate target, motion blur and depth of field.
+- **Display** includes the FPS counter toggle, frame-rate target, motion blur and depth of field. On Android, the overlay separates UI render-loop FPS from guest game ticks per second; the latter is not a Vulkan-present count.
 - Android starts with a 960×540 guest video mode; **Display → Resolution** can select 540p, 720p or 1080p (restart required). The Android surface still fills the phone screen.
 - **Performance** includes Performance, Balanced and Original graphics presets, plus individual detail controls.
 - Changes are saved to the app's settings file.

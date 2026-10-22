@@ -227,6 +227,11 @@ uint64_t NowMicros() {
                       .count());
 }
 
+#if defined(__ANDROID__)
+std::atomic<double> g_android_guest_tick_rate{0.0};
+std::atomic<uint64_t> g_android_guest_tick_sample_us{0};
+#endif
+
 void SetReduced(const std::string& what, bool reduced) {
   const bool all = what == "all";
   if (all || what == "shadows") {
@@ -307,9 +312,19 @@ void RecordAndroidGameFrame() {
   if (now <= last_frame) {
     return;
   }
-  frame_intervals_us.push_back(now - last_frame);
+  const uint64_t frame_interval_us = now - last_frame;
+  frame_intervals_us.push_back(frame_interval_us);
   last_frame = now;
   draw_calls += uint64_t(rex::perf::GetSnapshotCounter(rex::perf::CounterId::kDrawCalls));
+
+  const double interval_seconds = static_cast<double>(frame_interval_us) / 1'000'000.0;
+  const double instantaneous_rate = 1.0 / interval_seconds;
+  static double smoothed_rate = 0.0;
+  const double blend = interval_seconds / (0.5 + interval_seconds);
+  smoothed_rate = smoothed_rate > 0.0 ? smoothed_rate + blend * (instantaneous_rate - smoothed_rate)
+                                     : instantaneous_rate;
+  g_android_guest_tick_rate.store(smoothed_rate, std::memory_order_relaxed);
+  g_android_guest_tick_sample_us.store(now, std::memory_order_relaxed);
 
   if (now - sample_started < 10'000'000 || frame_intervals_us.empty()) {
     return;
@@ -332,6 +347,17 @@ void RecordAndroidGameFrame() {
 #endif
 
 }  // namespace
+
+#if defined(__ANDROID__)
+double MclaAndroidGuestTickRate() {
+  const uint64_t last_sample_us = g_android_guest_tick_sample_us.load(std::memory_order_relaxed);
+  const uint64_t now = NowMicros();
+  if (!last_sample_us || now < last_sample_us || now - last_sample_us > 2'000'000) {
+    return 0.0;
+  }
+  return g_android_guest_tick_rate.load(std::memory_order_relaxed);
+}
+#endif
 
 // Once a frame, from the frame timer hook.
 void MclaTickPerfOptions() {

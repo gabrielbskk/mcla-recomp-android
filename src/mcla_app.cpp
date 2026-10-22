@@ -31,6 +31,10 @@
 #include <rex/ui/imgui_drawer.h>
 #include <rex/ui/windowed_app_context.h>
 
+#if defined(__ANDROID__)
+double MclaAndroidGuestTickRate();
+#endif
+
 namespace {
 
 std::atomic<MclaApp*> g_mcla_app{nullptr};
@@ -67,7 +71,17 @@ class FpsCounterDialog final : public rex::ui::ImGuiDialog {
                                         ImGuiWindowFlags_NoSavedSettings |
                                         ImGuiWindowFlags_NoFocusOnAppearing;
     if (ImGui::Begin("MCLA FPS", nullptr, kFlags)) {
+#if defined(__ANDROID__)
+      ImGui::Text("UI FPS: %.0f", smoothed_fps_);
+      const double game_tick_rate = MclaAndroidGuestTickRate();
+      if (game_tick_rate > 0.0) {
+        ImGui::Text("Game ticks/s: %.1f", game_tick_rate);
+      } else {
+        ImGui::Text("Game ticks/s: --");
+      }
+#else
       ImGui::Text("FPS: %.0f", smoothed_fps_);
+#endif
     }
     ImGui::End();
   }
