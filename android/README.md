@@ -56,6 +56,7 @@ The Android game view includes an on-screen virtual gamepad: left stick for stee
 The Android native C++ targets use `-O3` for the `RelWithDebInfo` release configuration; Android Gradle selects that configuration for the current release variant. This may reduce CPU time, but FPS still needs to be measured on a device.
 
 On the next launch, the launcher exports the previous runtime's rotating log files and an Android process-exit report (including the system trace when available) to `Documents/MCLA Recomp`. The report includes device model, Android version, app version, and the prior process exit reason. Export failures do not block startup.
+On Android, runtime logs also record a sample every 10 seconds: estimated UI render-loop FPS, p95 and maximum frame interval, and process VmRSS from `/proc/self/status`. This is an approximate render-loop metric, not a Vulkan-presented FPS measurement or Android PSS.
 
 Android Vulkan shader warm-up defaults to two background pipeline workers to reduce CPU contention with emulation and rendering. This changes warm-up concurrency; it does not guarantee a higher steady-state FPS.
 

@@ -2,10 +2,16 @@
 
 #include "mcla_app.h"
 
+#include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
-#include <string>
+#include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
 #if defined(__ANDROID__)
 #include <SDL3/SDL_system.h>
 #endif
@@ -34,6 +40,8 @@ class FpsCounterDialog final : public rex::ui::ImGuiDialog {
  public:
   explicit FpsCounterDialog(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
 
+  void SetOverlayVisible(bool visible) { overlay_visible_ = visible; }
+
  protected:
   void OnDraw(ImGuiIO& io) override {
     if (!(io.DeltaTime > 0.0f) || !std::isfinite(io.DeltaTime)) {
@@ -42,6 +50,12 @@ class FpsCounterDialog final : public rex::ui::ImGuiDialog {
     const float instant_fps = 1.0f / io.DeltaTime;
     smoothed_fps_ = smoothed_fps_ > 0.0f ? smoothed_fps_ * 0.85f + instant_fps * 0.15f
                                          : instant_fps;
+#if defined(__ANDROID__)
+    RecordPerformanceSample(io.DeltaTime);
+#endif
+    if (!overlay_visible_) {
+      return;
+    }
     ImGui::SetNextWindowPos(ImVec2(16.0f, 16.0f), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.60f);
     constexpr ImGuiWindowFlags kFlags = ImGuiWindowFlags_NoDecoration |
@@ -56,6 +70,52 @@ class FpsCounterDialog final : public rex::ui::ImGuiDialog {
   }
 
  private:
+#if defined(__ANDROID__)
+  static uint64_t ReadVmRssKiB() {
+    std::ifstream status("/proc/self/status");
+    std::string line;
+    while (std::getline(status, line)) {
+      if (line.compare(0, 6, "VmRSS:") == 0) {
+        std::istringstream value_stream(line.substr(6));
+        uint64_t rss_kib = 0;
+        value_stream >> rss_kib;
+        return rss_kib;
+      }
+    }
+    return 0;
+  }
+
+  void RecordPerformanceSample(float delta_time) {
+    using Clock = std::chrono::steady_clock;
+    const auto now = Clock::now();
+    if (sample_started_ == Clock::time_point{}) {
+      sample_started_ = now;
+    }
+    ++sample_frames_;
+    frame_times_ms_.push_back(delta_time * 1000.0f);
+    const double elapsed_seconds = std::chrono::duration<double>(now - sample_started_).count();
+    if (elapsed_seconds < 10.0 || frame_times_ms_.empty()) {
+      return;
+    }
+
+    std::sort(frame_times_ms_.begin(), frame_times_ms_.end());
+    const size_t p95_index = std::min(
+        frame_times_ms_.size() - 1,
+        static_cast<size_t>(std::ceil(static_cast<double>(frame_times_ms_.size()) * 0.95)) - 1);
+    REXLOG_INFO("android perf: render-loop estimate {:.1f} FPS, frame p95 {:.1f} ms, "
+                "max {:.1f} ms, VmRSS {} KiB",
+                static_cast<double>(sample_frames_) / elapsed_seconds,
+                frame_times_ms_[p95_index], frame_times_ms_.back(), ReadVmRssKiB());
+    frame_times_ms_.clear();
+    sample_frames_ = 0;
+    sample_started_ = now;
+  }
+
+  std::chrono::steady_clock::time_point sample_started_{};
+  uint64_t sample_frames_ = 0;
+  std::vector<float> frame_times_ms_;
+#endif
+  bool overlay_visible_ = false;
   float smoothed_fps_ = 0.0f;
 };
 
@@ -98,11 +158,18 @@ void MclaApp::SetFpsCounterVisible(bool visible) {
   if (!fps_drawer_) {
     return;
   }
+#if defined(__ANDROID__)
+  if (!fps_counter_dialog_) {
+    fps_counter_dialog_ = std::make_unique<FpsCounterDialog>(fps_drawer_);
+  }
+  static_cast<FpsCounterDialog*>(fps_counter_dialog_.get())->SetOverlayVisible(visible);
+#else
   if (visible && !fps_counter_dialog_) {
     fps_counter_dialog_ = std::make_unique<FpsCounterDialog>(fps_drawer_);
   } else if (!visible) {
     fps_counter_dialog_.reset();
   }
+#endif
 }
 
 void MclaRequestFpsCounter(bool visible) {
