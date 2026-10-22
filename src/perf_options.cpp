@@ -20,7 +20,6 @@
 
 #include <rex/cvar.h>
 #include <rex/logging.h>
-#include <rex/perf/counter.h>
 #include <rex/runtime.h>
 #include <rex/system/xmemory.h>
 
@@ -59,7 +58,7 @@ REXCVAR_DEFINE_DOUBLE(mcla_parked_cars, MCLA_DEFAULT(1.0, 0.25), "MCLA", "Parked
 // For measuring what an option is worth. The title screen's camera wanders, so
 // two runs never show the same scene; this switches the named option between
 // as-shipped and reduced every four seconds within one run and logs frame time
-// and draws for each state, which compares like with like.
+// for each state, which compares like with like.
 #undef MCLA_DEFAULT
 
 REXCVAR_DEFINE_STRING(mcla_ab_test, "", "MCLA",
@@ -257,7 +256,7 @@ void TickAbTest() {
     return;
   }
   struct State {
-    uint64_t frames = 0, micros = 0, draws = 0;
+    uint64_t frames = 0, micros = 0;
   };
   static State states[2];
   static bool reduced = false;
@@ -272,7 +271,6 @@ void TickAbTest() {
     State& state = states[reduced ? 1 : 0];
     ++state.frames;
     state.micros += now - last_frame;
-    state.draws += uint64_t(rex::perf::GetSnapshotCounter(rex::perf::CounterId::kDrawCalls));
   }
   last_frame = now;
   if (now - switched_at > 4'000'000) {
@@ -285,10 +283,9 @@ void TickAbTest() {
     for (int i = 0; i < 2; ++i) {
       const State& state = states[i];
       if (state.frames) {
-        REXLOG_INFO("ab test '{}' {}: {} frames, {:.2f} ms a frame, {:.0f} draws a frame", what,
+        REXLOG_INFO("ab test '{}' {}: {} frames, {:.2f} ms a frame", what,
                     i ? "reduced" : "as shipped", state.frames,
-                    double(state.micros) / double(state.frames) / 1000.0,
-                    double(state.draws) / double(state.frames));
+                    double(state.micros) / double(state.frames) / 1000.0);
       }
     }
   }
@@ -298,7 +295,6 @@ void TickAbTest() {
 void RecordAndroidGameFrame() {
   static uint64_t sample_started = 0;
   static uint64_t last_frame = 0;
-  static uint64_t draw_calls = 0;
   static std::vector<uint64_t> frame_intervals_us;
   if (frame_intervals_us.capacity() == 0) {
     frame_intervals_us.reserve(600);
@@ -315,7 +311,6 @@ void RecordAndroidGameFrame() {
   const uint64_t frame_interval_us = now - last_frame;
   frame_intervals_us.push_back(frame_interval_us);
   last_frame = now;
-  draw_calls += uint64_t(rex::perf::GetSnapshotCounter(rex::perf::CounterId::kDrawCalls));
 
   const double interval_seconds = static_cast<double>(frame_interval_us) / 1'000'000.0;
   const double instantaneous_rate = 1.0 / interval_seconds;
@@ -334,15 +329,12 @@ void RecordAndroidGameFrame() {
       frame_intervals_us.size() - 1,
       static_cast<size_t>(std::ceil(static_cast<double>(frame_intervals_us.size()) * 0.95)) - 1);
   const double elapsed_seconds = double(now - sample_started) / 1'000'000.0;
-  REXLOG_INFO("android game-frame sample: {:.1f} ticks/s, p95 {:.2f} ms, max {:.2f} ms, "
-              "{:.0f} draw calls/tick",
+  REXLOG_INFO("android game-frame sample: {:.1f} ticks/s, p95 {:.2f} ms, max {:.2f} ms",
               double(frame_intervals_us.size()) / elapsed_seconds,
               double(frame_intervals_us[p95_index]) / 1000.0,
-              double(frame_intervals_us.back()) / 1000.0,
-              double(draw_calls) / double(frame_intervals_us.size()));
+              double(frame_intervals_us.back()) / 1000.0);
   frame_intervals_us.clear();
   sample_started = now;
-  draw_calls = 0;
 }
 #endif
 
