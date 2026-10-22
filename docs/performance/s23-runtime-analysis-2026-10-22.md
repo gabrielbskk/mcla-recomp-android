@@ -19,7 +19,7 @@ The Android FPS overlay now distinguishes UI render-loop FPS from guest game-loo
 
 The guest timer hook no longer reads the ReXGlue draw-call snapshot counter on every game tick. That counter stayed at zero throughout the exported session, so it added hot-path work without providing usable data. The periodic game-frame sample now reports only measured tick rate and interval percentiles.
 
-The runtime's VmRSS rises from about 888 MiB to 1.6 GiB as the guest loop drops from 30.1 to 2–4 ticks/s. ReXGlue tracks texture-cache allocation sizes through VMA, but that estimate was not emitted in the exported log. The Android SDK patch now logs the estimate, cache entry count, and soft/hard limits every 10 seconds. Comparing it with VmRSS adds context for memory growth; the values measure different things and the VMA allocation size is not process RAM or total GPU memory. This is diagnostic instrumentation, not a claimed FPS optimization.
+The runtime's VmRSS rises from about 888 MiB to 1.6 GiB as the guest loop drops from 30.1 to 2–4 ticks/s. ReXGlue tracks texture-cache allocation sizes through VMA, but that estimate was not emitted in the exported log. The Android SDK patch logs the estimate, cache entry count, and soft/hard limits every 10 seconds. The separate `rexgpu-xenos` plugin target is now compiled with that diagnostic, confirmed in the plugin ELF. Comparing it with VmRSS will help distinguish texture-cache growth from other allocations; the values measure different things and VMA allocation size is not process RAM or total GPU memory. This is diagnostic instrumentation, not a claimed FPS optimization.
 
 Cppcheck 2.22 analyzed all 14 project C++ source files with Android enabled. It found only `uninitMemberVarNoCtor` warnings for structs populated with aggregate initialization; source inspection confirmed those fields are supplied at each construction site. No null-pointer, bounds, or performance warnings were reported. This is static analysis only, not a native Android build.
 
@@ -30,12 +30,12 @@ OpenJDK 21, pkg-config, and Cppcheck 2.22. Its hardware is 1.9 GiB RAM, 4 CPU
 cores, and 4 GiB swap, with 400 GiB disk space free at the latest check. It is
 useful as a repository and Drive staging host, but remains a poor place for the
 full native compile. Termux on the S23 now has the Android sysroot, CMake,
-Ninja, Clang, and the initialized ReXGlue SDK. The C++ ARM64 Android build
-completed there on 2026-10-22 and produced `libmain.so`; its ELF metadata and
-hash are recorded in `s23-native-build-2026-10-22.md`. This is compile/link
-validation only. No APK was generated or installed, and the installed runtime
-logs are from an older binary, so the latest source changes have no runtime FPS
-validation yet.
+Ninja, Clang, and the initialized ReXGlue SDK. The Android ARM64 `libmain.so`
+and the separate `librexgpu-xenos.so` plugin both compiled there on
+2026-10-22. Their ELF metadata and hashes are recorded in
+`s23-native-build-2026-10-22.md`. This is compile/link validation only. No APK
+was generated or installed, and the installed runtime logs are from an older
+binary, so the latest source changes have no runtime FPS validation yet.
 
 ## Next investigation
 
@@ -47,9 +47,11 @@ slowdown, but later intervals remain severely slow after pipeline creation
 subsides. A pipeline cache could reduce repeat-start shader/pipeline work; it
 cannot explain or be claimed to fix the sustained 2–4 ticks/s. Before changing
 shared Vulkan synchronization or cache lifetime, the next diagnostic should be
-a run from the current source with the per-thread CPU and texture-cache memory
-sampling enabled. The old exported logs predate those probes. Do not package or
-install an APK for this step unless the user requests it.
+a run of the current native libraries with the per-thread CPU and texture-cache
+memory sampling enabled. The current plugin contains the cache sampler, but
+the old exported logs predate it. The ADB endpoint last supplied by the user
+refused connections, so no fresh process log was available. Do not package or
+install an APK for this step.
 
 ## Current static audit — 2026-10-22
 
