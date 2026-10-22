@@ -33,10 +33,12 @@ VULKAN_LOADER_PATCH = (
     "#endif\n",
     "#elif REX_PLATFORM_ANDROID\n"
     "  // The app may return a validated custom driver loader; null means use Android's loader.\n"
-    "  if (void* custom_loader = MclaAndroidOpenVulkanLoader()) {\n"
-    "    loader_loaded = vulkan_instance->loader_.LoadFromHandle(custom_loader);\n"
-    "    if (loader_loaded) {\n"
-    "      REXLOG_INFO(\"Using app-selected Vulkan driver loader\");\n"
+    "  if (MclaAndroidOpenVulkanLoader) {\n"
+    "    if (void* custom_loader = MclaAndroidOpenVulkanLoader()) {\n"
+    "      loader_loaded = vulkan_instance->loader_.LoadFromHandle(custom_loader);\n"
+    "      if (loader_loaded) {\n"
+    "        REXLOG_INFO(\"Using app-selected Vulkan driver loader\");\n"
+    "      }\n"
     "    }\n"
     "  }\n"
     "  if (!loader_loaded) {\n"
@@ -55,12 +57,23 @@ VULKAN_LOADER_PATCH = (
     "#endif\n",
 )
 
-VULKAN_CALLBACK_DECLARATION = (
-    "#include <rex/ui/vulkan/presenter.h>\n",
-    "#include <rex/ui/vulkan/presenter.h>\n\n"
-    "#if REX_PLATFORM_ANDROID\n"
-    "extern \"C\" void* MclaAndroidOpenVulkanLoader();\n"
-    "#endif\n",
+VULKAN_LEGACY_LOADER_PATCH = (
+    "#elif REX_PLATFORM_ANDROID\n"
+    "  // The app may return a validated custom driver loader; null means use Android's loader.\n"
+    "  if (void* custom_loader = MclaAndroidOpenVulkanLoader()) {\n"
+    "    loader_loaded = vulkan_instance->loader_.LoadFromHandle(custom_loader);\n"
+    "    if (loader_loaded) {\n"
+    "      REXLOG_INFO(\"Using app-selected Vulkan driver loader\");\n"
+    "    }\n"
+    "  }\n"
+    "  if (!loader_loaded) {\n"
+    "    loader_loaded = vulkan_instance->loader_.Load(platform::lib_names::kVulkanLoader);\n"
+    "  }\n"
+    "  if (!loader_loaded) {\n"
+    "    REXLOG_ERROR(\"Failed to load {}\", platform::lib_names::kVulkanLoader);\n"
+    "    return nullptr;\n"
+    "  }\n",
+    VULKAN_LOADER_PATCH[1].split("#else\n", 1)[0],
 )
 
 VIDEO_MODE_DEFAULTS = (
@@ -300,19 +313,31 @@ def main() -> None:
         raise SystemExit(f"ReXGlue Vulkan instance source not found: {instance}")
     instance_text = instance.read_text(encoding="utf-8")
     instance_changed = False
-    original, patched = VULKAN_CALLBACK_DECLARATION
-    if patched not in instance_text:
-        if instance_text.count(original) != 1:
-            raise SystemExit(f"Expected one Vulkan presenter include: {instance}")
-        instance_text = instance_text.replace(original, patched, 1)
-        instance_changed = True
+    strong_declaration = 'extern "C" void* MclaAndroidOpenVulkanLoader();'
+    weak_declaration = 'extern "C" void* MclaAndroidOpenVulkanLoader() __attribute__((weak));'
+    if weak_declaration not in instance_text:
+        if strong_declaration in instance_text:
+            instance_text = instance_text.replace(strong_declaration, weak_declaration, 1)
+            instance_changed = True
+        else:
+            include = "#include <rex/ui/vulkan/presenter.h>\n"
+            if instance_text.count(include) != 1:
+                raise SystemExit(f"Expected one Vulkan presenter include: {instance}")
+            declaration = (include + "\n#if REX_PLATFORM_ANDROID\n" + weak_declaration + "\n#endif\n")
+            instance_text = instance_text.replace(include, declaration, 1)
+            instance_changed = True
 
     original, patched = VULKAN_LOADER_PATCH
     if patched not in instance_text:
-        if instance_text.count(original) != 1:
-            raise SystemExit(f"Expected one Android loader insertion point: {instance}")
-        instance_text = instance_text.replace(original, patched, 1)
-        instance_changed = True
+        legacy, replacement = VULKAN_LEGACY_LOADER_PATCH
+        if legacy in instance_text:
+            instance_text = instance_text.replace(legacy, replacement, 1)
+            instance_changed = True
+        else:
+            if instance_text.count(original) != 1:
+                raise SystemExit(f"Expected one Android loader insertion point: {instance}")
+            instance_text = instance_text.replace(original, patched, 1)
+            instance_changed = True
 
     if instance_changed:
         instance.write_text(instance_text, encoding="utf-8")

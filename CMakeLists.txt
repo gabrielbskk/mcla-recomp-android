@@ -20,6 +20,10 @@ if(ANDROID)
         message(FATAL_ERROR "Initialize submodules recursively to build Android Vulkan driver support.")
     endif()
     add_subdirectory(third_party/libadrenotools)
+    # The linker namespace helper is a static archive embedded in librexruntime.
+    # Android's NDK normally enables PIC globally; native Termux builds need it
+    # declared explicitly for these two static targets.
+    set_target_properties(adrenotools linkernsbypass PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
 
 include(generated/rexglue.cmake)
@@ -65,6 +69,12 @@ else()
 endif()
 
 rexglue_setup_target(mcla)
+
+if(ANDROID AND TARGET mcla_recomp)
+    # Recompiled guest code is an OBJECT library linked into libmain.so; make
+    # its generated PPC objects position-independent for Android shared loading.
+    set_target_properties(mcla_recomp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 
 if(WIN32)
     # timeBeginPeriod for the frame limiter.

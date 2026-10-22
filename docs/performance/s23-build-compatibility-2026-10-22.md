@@ -23,14 +23,15 @@ patched SDK tree.
 - The Termux package set does not include Google's `android.toolchain.cmake`.
   A custom CMake configuration using Termux's Android-targeting Clang still
   needs to be evaluated against the complete SDK.
-- SDL3 and the remaining ReXGlue submodules are still being initialized.
-- No SDK or game target build has been run yet, and no APK was generated or
-  installed. No runtime performance change is claimed.
+- SDL3 and the remaining ReXGlue submodules were initialized, and the Android
+  ARM64 SDK and game shared-library builds completed. The final ELF details and
+  current validation limits are recorded in
+  `s23-native-build-2026-10-22.md`.
+- No APK was generated or installed. No runtime performance change is claimed.
 
 ## Next steps
 
-Finish submodule initialization, configure the host ARM64 ReXGlue code
-generator under Termux, run code generation from the locally provided
-`default.xex`, then configure/build the Android ARM64 native target with the
-Termux sysroot. Keep all generated game data and binaries local; do not upload
-the XEX or generated proprietary game assets.
+Keep generated game data and binaries local; do not upload the XEX or generated
+proprietary game assets. The next validation milestone requires explicit
+authorization to stop gameplay, package an installable app, and run it on the
+device; compilation alone does not establish runtime compatibility or FPS.
