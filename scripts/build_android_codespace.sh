@@ -32,7 +32,7 @@ gradle_args=(-p android :app:assembleRelease)
 # The current Codespaces Android lint metadata makes lintVitalAnalyzeRelease
 # fail independently of compilation. Set MCLA_RUN_ANDROID_LINT=1 to run it.
 if [[ "${MCLA_RUN_ANDROID_LINT:-0}" != "1" ]]; then
-    gradle_args+=(-x lintVitalAnalyzeRelease -x lintVitalReportRelease)
+    gradle_args+=(-x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease)
 fi
 
 ./android/gradlew "${gradle_args[@]}"

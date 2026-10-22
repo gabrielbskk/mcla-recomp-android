@@ -8,6 +8,13 @@ project(mcla LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Android Gradle currently configures native Release as RelWithDebInfo, which
+# defaults to -O2. Keep the useful symbol information while optimizing the
+# generated guest code and runtime sources at -O3 on Android.
+if(ANDROID AND CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-O3>")
+endif()
+
 include(generated/rexglue.cmake)
 if(ANDROID)
     include_directories("${REXSDK_DIR}/thirdparty/libucontext/include"
@@ -34,6 +41,7 @@ set(MCLA_SOURCES
 if(ANDROID)
     # SDL3 Android loads libmain.so and enters through SDL_main.
     add_library(mcla SHARED ${MCLA_SOURCES})
+    target_sources(mcla PRIVATE src/touch_controls.cpp)
     set_target_properties(mcla PROPERTIES OUTPUT_NAME main)
     target_compile_options(mcla PRIVATE -include SDL3/SDL_main.h)
 elseif(WIN32)

@@ -46,6 +46,12 @@ Open the game's pause menu, then **Settings**:
 - **Performance** includes Performance, Balanced and Original graphics presets, plus individual detail controls.
 - Changes are saved to the app's settings file.
 
+## Touch controls
+
+The Android game view includes an on-screen virtual gamepad: left stick for steering, RT/ LT for throttle and brake, A/B/X/Y, and START. The overlay hides after five seconds without touch. Touch the screen to reveal it again, or use the persistent PAD/HIDE button in the upper-right corner. Touch input is forwarded through SDL as a virtual gamepad, so the game uses the same input path as a physical controller.
+
+The Android native C++ targets use `-O3` for the `RelWithDebInfo` release configuration; Android Gradle selects that configuration for the current release variant. This may reduce CPU time, but FPS still needs to be measured on a device.
+
 The renderer currently follows the Android display surface. The ReXGlue resolution-scale controls only support 1x and higher, so this build does not expose a misleading 720p/downscaling option yet.
 
 ## Build requirements

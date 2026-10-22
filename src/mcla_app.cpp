@@ -72,15 +72,24 @@ extern const char* g_mcla_settings_path;
 std::unique_ptr<rex::system::IAudioSystem> CreateMclaAudioSystem(
     rex::runtime::FunctionDispatcher* function_dispatcher);
 
+#if defined(__ANDROID__)
+std::unique_ptr<rex::ui::ImGuiDialog> CreateAndroidTouchControlsDialog(
+    rex::ui::ImGuiDrawer* drawer);
+#endif
+
 MclaApp::~MclaApp() {
   MclaApp* expected = this;
   g_mcla_app.compare_exchange_strong(expected, nullptr, std::memory_order_acq_rel);
+  touch_controls_dialog_.reset();
   fps_counter_dialog_.reset();
   fps_drawer_ = nullptr;
 }
 
 void MclaApp::OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) {
   fps_drawer_ = drawer;
+#if defined(__ANDROID__)
+  touch_controls_dialog_ = CreateAndroidTouchControlsDialog(drawer);
+#endif
   g_mcla_app.store(this, std::memory_order_release);
   SetFpsCounterVisible(rex::cvar::GetFlagByName("mcla_fps_counter") == "true");
 }

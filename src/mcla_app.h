@@ -36,6 +36,9 @@ class MclaApp : public rex::ReXApp {
  private:
   rex::ui::ImGuiDrawer* fps_drawer_ = nullptr;
   std::unique_ptr<rex::ui::ImGuiDialog> fps_counter_dialog_;
+#if defined(__ANDROID__)
+  std::unique_ptr<rex::ui::ImGuiDialog> touch_controls_dialog_;
+#endif
 
   void InstallCrashTrace();
   void ConfigureFrameTiming();
