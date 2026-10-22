@@ -67,6 +67,9 @@ bool mcla_fence_spin() {
   } else {
 #if defined(_M_X64) || defined(__x86_64__)
     _mm_pause();
+#elif defined(__aarch64__)
+    // AArch64 equivalent of x86 PAUSE while the GPU thread advances.
+    __asm__ __volatile__("yield");
 #endif
   }
   return true;
