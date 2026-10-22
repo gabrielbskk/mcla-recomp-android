@@ -8,8 +8,10 @@
 
 #include "generated/default/mcla_init.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -287,6 +289,48 @@ void TickAbTest() {
   }
 }
 
+#if defined(__ANDROID__)
+void RecordAndroidGameFrame() {
+  static uint64_t sample_started = 0;
+  static uint64_t last_frame = 0;
+  static uint64_t draw_calls = 0;
+  static std::vector<uint64_t> frame_intervals_us;
+  if (frame_intervals_us.capacity() == 0) {
+    frame_intervals_us.reserve(600);
+  }
+
+  const uint64_t now = NowMicros();
+  if (!sample_started) {
+    sample_started = last_frame = now;
+    return;
+  }
+  if (now <= last_frame) {
+    return;
+  }
+  frame_intervals_us.push_back(now - last_frame);
+  last_frame = now;
+  draw_calls += uint64_t(rex::perf::GetSnapshotCounter(rex::perf::CounterId::kDrawCalls));
+
+  if (now - sample_started < 10'000'000 || frame_intervals_us.empty()) {
+    return;
+  }
+  std::sort(frame_intervals_us.begin(), frame_intervals_us.end());
+  const size_t p95_index = std::min(
+      frame_intervals_us.size() - 1,
+      static_cast<size_t>(std::ceil(static_cast<double>(frame_intervals_us.size()) * 0.95)) - 1);
+  const double elapsed_seconds = double(now - sample_started) / 1'000'000.0;
+  REXLOG_INFO("android game-frame sample: {:.1f} ticks/s, p95 {:.2f} ms, max {:.2f} ms, "
+              "{:.0f} draw calls/tick",
+              double(frame_intervals_us.size()) / elapsed_seconds,
+              double(frame_intervals_us[p95_index]) / 1000.0,
+              double(frame_intervals_us.back()) / 1000.0,
+              double(draw_calls) / double(frame_intervals_us.size()));
+  frame_intervals_us.clear();
+  sample_started = now;
+  draw_calls = 0;
+}
+#endif
+
 }  // namespace
 
 // Once a frame, from the frame timer hook.
@@ -295,6 +339,9 @@ void MclaTickPerfOptions() {
   if (!base) {
     return;
   }
+#if defined(__ANDROID__)
+  RecordAndroidGameFrame();
+#endif
   TickAbTest();
   ApplyShadowPhases(base);
   ApplyAmbientIfChanged(base);
