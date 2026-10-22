@@ -25,10 +25,30 @@ Cppcheck 2.22 analyzed all 14 project C++ source files with Android enabled. It 
 
 ## Build-station audit
 
-The Void Linux notebook now has CMake 4.2.2, Ninja 1.13.2, Clang/LLD 21.1.8, OpenJDK 21, pkg-config, and Cppcheck 2.22. Its hardware is 1.9 GiB RAM, 4 CPU cores, and 4 GiB swap. The notebook still has no Android NDK/SDK CMake toolchain, host ReXGlue code generator, or `game/default.xex`, so it cannot currently produce or validate the Android native target. No full compile was attempted on the low-memory notebook or the S23 while the phone is in use. The Cppcheck run is the only validation of the latest patch; no runtime FPS gain is claimed.
+The Void Linux notebook has CMake 4.2.2, Ninja 1.13.2, Clang/LLD 21.1.8,
+OpenJDK 21, pkg-config, and Cppcheck 2.22. Its hardware is 1.9 GiB RAM, 4 CPU
+cores, and 4 GiB swap, with 400 GiB disk space free at the latest check. It is
+useful as a repository and Drive staging host, but remains a poor place for the
+full native compile. Termux on the S23 now has the Android sysroot, CMake,
+Ninja, Clang, and the initialized ReXGlue SDK. The C++ ARM64 Android build
+completed there on 2026-10-22 and produced `libmain.so`; its ELF metadata and
+hash are recorded in `s23-native-build-2026-10-22.md`. This is compile/link
+validation only. No APK was generated or installed, and the installed runtime
+logs are from an older binary, so the latest source changes have no runtime FPS
+validation yet.
 
 ## Next investigation
 
-The Vulkan backend currently passes `VK_NULL_HANDLE` as the `VkPipelineCache` argument to `vkCreateGraphicsPipelines`. ReXGlue's persistent Xenos shader and pipeline-description storage therefore does not provide a persisted Vulkan driver pipeline cache. A device/driver-keyed Vulkan cache is a promising next target, but it needs careful synchronization and cache invalidation before implementation. The current Termux environment lacks the Android CMake toolchain and full SDK platform files, so the SDK-patch changes have not been compiled here.
+The Vulkan backend passes `VK_NULL_HANDLE` as the `VkPipelineCache` argument to
+`vkCreateGraphicsPipelines`. ReXGlue's persistent Xenos shader and pipeline
+description storage therefore does not provide a persisted Vulkan driver
+pipeline cache. The run's 497 pipeline creations align with the initial
+slowdown, but later intervals remain severely slow after pipeline creation
+subsides. A pipeline cache could reduce repeat-start shader/pipeline work; it
+cannot explain or be claimed to fix the sustained 2–4 ticks/s. Before changing
+shared Vulkan synchronization or cache lifetime, the next diagnostic should be
+a run from the current source with the per-thread CPU and texture-cache memory
+sampling enabled. The old exported logs predate those probes. Do not package or
+install an APK for this step unless the user requests it.
 
 No APK was generated or installed as part of this analysis.
