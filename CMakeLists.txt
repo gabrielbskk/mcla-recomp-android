@@ -9,6 +9,11 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(generated/rexglue.cmake)
+if(ANDROID)
+    include_directories("${REXSDK_DIR}/thirdparty/libucontext/include"
+                        "${REXSDK_DIR}/thirdparty/imgui"
+                        "${REXSDK_DIR}/thirdparty/libucontext/arch/aarch64/include")
+endif()
 
 # Sources
 set(MCLA_SOURCES
@@ -30,7 +35,7 @@ if(ANDROID)
     # SDL3 Android loads libmain.so and enters through SDL_main.
     add_library(mcla SHARED ${MCLA_SOURCES})
     set_target_properties(mcla PROPERTIES OUTPUT_NAME main)
-    target_compile_definitions(mcla PRIVATE main=SDL_main)
+    target_compile_options(mcla PRIVATE -include SDL3/SDL_main.h)
 elseif(WIN32)
     add_executable(mcla WIN32 ${MCLA_SOURCES})
 else()

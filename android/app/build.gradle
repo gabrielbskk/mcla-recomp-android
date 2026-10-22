@@ -15,6 +15,19 @@ if (!new File(rexSdk, 'CMakeLists.txt').isFile()) {
 def codegenPath = providers.environmentVariable('REXGLUE_CODEGEN').getOrNull()
 def codegenLibPath = providers.environmentVariable('REXGLUE_HOST_LIB_DIR').getOrNull()
 def pythonExecutable = providers.gradleProperty('PYTHON_EXECUTABLE').orElse(providers.environmentVariable('PYTHON_EXECUTABLE')).getOrNull()
+def releaseStoreFile = providers.gradleProperty("MCLA_RELEASE_STORE_FILE")
+    .orElse(providers.environmentVariable("MCLA_RELEASE_STORE_FILE")).getOrNull()
+def releaseStorePassword = providers.gradleProperty("MCLA_RELEASE_STORE_PASSWORD")
+    .orElse(providers.environmentVariable("MCLA_RELEASE_STORE_PASSWORD")).getOrNull()
+def releaseKeyAlias = providers.gradleProperty("MCLA_RELEASE_KEY_ALIAS")
+    .orElse(providers.environmentVariable("MCLA_RELEASE_KEY_ALIAS")).getOrNull()
+def releaseKeyPassword = providers.gradleProperty("MCLA_RELEASE_KEY_PASSWORD")
+    .orElse(providers.environmentVariable("MCLA_RELEASE_KEY_PASSWORD")).getOrNull()
+def releaseSigningValues = [releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword]
+def hasCustomReleaseSigning = releaseSigningValues.any { it != null && !it.trim().isEmpty() }
+if (hasCustomReleaseSigning && releaseSigningValues.any { it == null || it.trim().isEmpty() }) {
+    throw new GradleException("Custom release signing needs MCLA_RELEASE_STORE_FILE, MCLA_RELEASE_STORE_PASSWORD, MCLA_RELEASE_KEY_ALIAS, and MCLA_RELEASE_KEY_PASSWORD.")
+}
 
 def gameXex = new File(repoRoot, 'game/default.xex')
 tasks.register('generateMclaRecomp') {
@@ -25,6 +38,7 @@ tasks.register('generateMclaRecomp') {
         inputs.file(gameXex)
     }
     outputs.file(new File(repoRoot, 'generated/default/codegen.build.stamp'))
+    outputs.upToDateWhen { false }
     doLast {
         if (!new File(repoRoot, 'game/default.xex').isFile()) {
             throw new GradleException('Missing game/default.xex. Extract your own supported MCLA Complete Edition dump first.')
@@ -43,6 +57,13 @@ tasks.register('generateMclaRecomp') {
             args 'codegen', new File(repoRoot, 'mcla_manifest.toml').absolutePath
             workingDir repoRoot
             environment 'LD_LIBRARY_PATH', hostLibs.absolutePath + (priorLdPath ? ":${priorLdPath}" : '')
+        }
+        def generatedCmake = new File(repoRoot, 'generated/rexglue.cmake')
+        def generatedText = generatedCmake.getText('UTF-8')
+        def targetCodegenCommand = 'COMMAND $<TARGET_FILE:rex::rexglue> codegen'
+        def hostCodegenCommand = 'COMMAND "' + codegen.absolutePath.replace('\\', '/') + '" codegen'
+        if (generatedText.contains(targetCodegenCommand)) {
+            generatedCmake.write(generatedText.replace(targetCodegenCommand, hostCodegenCommand), 'UTF-8')
         }
     }
 }
@@ -74,10 +95,27 @@ android {
                     "-DREXSDK_DIR=${rexSdk.absolutePath}",
                     '-DREXGLUE_USE_VULKAN=ON',
                     '-DREXGLUE_USE_D3D12=OFF'
+                if (codegenPath) {
+                    arguments "-DREXGLUE_CODEGEN_EXECUTABLE=${codegenPath}"
+                }
                 if (pythonExecutable) {
                     arguments "-DPYTHON_EXECUTABLE=${pythonExecutable}"
                 }
                 targets 'mcla', 'rexgpu-xenos'
+            }
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (hasCustomReleaseSigning) {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            } else {
+                // Local experimental APKs stay installable; the debug key is not for public distribution.
+                initWith signingConfigs.debug
             }
         }
     }
@@ -87,16 +125,12 @@ android {
             minifyEnabled false
         }
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
-    sourceSets {
-        main {
-            jniLibs.srcDirs = [new File(rexSdk, 'out/android-arm64')]
-        }
-    }
 
     externalNativeBuild {
         cmake {

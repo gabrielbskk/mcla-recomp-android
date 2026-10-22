@@ -2,10 +2,15 @@
 
 #include "mcla_app.h"
 
+#include <atomic>
+#include <cmath>
+#include <string>
 #include <filesystem>
 #if defined(__ANDROID__)
 #include <SDL3/SDL_system.h>
 #endif
+
+#include <imgui.h>
 
 #include <rex/cvar.h>
 #include <rex/filesystem.h>
@@ -13,21 +18,152 @@
 #include <rex/logging.h>
 #include <rex/runtime.h>
 #include <rex/system/gpu_plugin.h>
+#include <rex/ui/imgui_dialog.h>
+#include <rex/ui/imgui_drawer.h>
+#include <rex/ui/windowed_app_context.h>
+
+namespace {
+
+std::atomic<MclaApp*> g_mcla_app{nullptr};
+#if defined(__ANDROID__)
+std::string g_android_settings_path;
+std::string g_android_path_diagnostics;
+#endif
+
+class FpsCounterDialog final : public rex::ui::ImGuiDialog {
+ public:
+  explicit FpsCounterDialog(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
+
+ protected:
+  void OnDraw(ImGuiIO& io) override {
+    if (!(io.DeltaTime > 0.0f) || !std::isfinite(io.DeltaTime)) {
+      return;
+    }
+    const float instant_fps = 1.0f / io.DeltaTime;
+    smoothed_fps_ = smoothed_fps_ > 0.0f ? smoothed_fps_ * 0.85f + instant_fps * 0.15f
+                                         : instant_fps;
+    ImGui::SetNextWindowPos(ImVec2(16.0f, 16.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.60f);
+    constexpr ImGuiWindowFlags kFlags = ImGuiWindowFlags_NoDecoration |
+                                        ImGuiWindowFlags_NoInputs |
+                                        ImGuiWindowFlags_AlwaysAutoResize |
+                                        ImGuiWindowFlags_NoSavedSettings |
+                                        ImGuiWindowFlags_NoFocusOnAppearing;
+    if (ImGui::Begin("MCLA FPS", nullptr, kFlags)) {
+      ImGui::Text("FPS: %.0f", smoothed_fps_);
+    }
+    ImGui::End();
+  }
+
+ private:
+  float smoothed_fps_ = 0.0f;
+};
+
+}  // namespace
 
 REXCVAR_DEFINE_STRING(mcla_gpu_backend, "any", "MCLA",
                       "Graphics backend for the Xenos GPU plugin: any, vulkan or d3d12");
+
+#if defined(__ANDROID__)
+extern const char* g_mcla_settings_path;
+#endif
 
 
 std::unique_ptr<rex::system::IAudioSystem> CreateMclaAudioSystem(
     rex::runtime::FunctionDispatcher* function_dispatcher);
 
+MclaApp::~MclaApp() {
+  MclaApp* expected = this;
+  g_mcla_app.compare_exchange_strong(expected, nullptr, std::memory_order_acq_rel);
+  fps_counter_dialog_.reset();
+  fps_drawer_ = nullptr;
+}
+
+void MclaApp::OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) {
+  fps_drawer_ = drawer;
+  g_mcla_app.store(this, std::memory_order_release);
+  SetFpsCounterVisible(rex::cvar::GetFlagByName("mcla_fps_counter") == "true");
+}
+
+void MclaApp::SetFpsCounterVisible(bool visible) {
+  if (!fps_drawer_) {
+    return;
+  }
+  if (visible && !fps_counter_dialog_) {
+    fps_counter_dialog_ = std::make_unique<FpsCounterDialog>(fps_drawer_);
+  } else if (!visible) {
+    fps_counter_dialog_.reset();
+  }
+}
+
+void MclaRequestFpsCounter(bool visible) {
+  MclaApp* app = g_mcla_app.load(std::memory_order_acquire);
+  if (!app) {
+    return;
+  }
+  app->app_context().CallInUIThreadDeferred([app, visible] {
+    if (g_mcla_app.load(std::memory_order_acquire) == app) {
+      app->SetFpsCounterVisible(visible);
+    }
+  });
+}
+
 // Started with no options (a double-click on mcla.exe), the game should just
 // run: find the extracted game next to the executable or, as the build leaves
 // it, in the repository a few folders up, and load the Xenos GPU plugin.
 void MclaApp::OnConfigurePaths(rex::PathConfig& paths) {
+#if defined(__ANDROID__)
+  // The POSIX default derives ~/.local/share from HOME, which Android sets to
+  // an unwritable /data. Keep user state, shader caches, and settings private
+  // to the app so they remain writable without broad storage access.
+  if (const char* internal_storage = SDL_GetAndroidInternalStoragePath();
+      internal_storage && *internal_storage) {
+    const std::filesystem::path app_data =
+        std::filesystem::path(internal_storage) / "mcla-recomp";
+    paths.user_data_root = app_data / "userdata";
+    paths.cache_root = app_data / "cache";
+    paths.config_path = paths.user_data_root / "mcla.toml";
+    std::error_code create_error;
+    std::filesystem::create_directories(paths.user_data_root, create_error);
+    if (create_error) {
+      g_android_path_diagnostics = "user storage setup failed: " + create_error.message();
+    }
+    create_error.clear();
+    std::filesystem::create_directories(paths.cache_root, create_error);
+    if (create_error) {
+      if (!g_android_path_diagnostics.empty()) g_android_path_diagnostics += "; ";
+      g_android_path_diagnostics += "cache setup failed: " + create_error.message();
+    }
+    g_android_settings_path = paths.config_path.string();
+    g_mcla_settings_path = g_android_settings_path.c_str();
+  }
+#endif
   if (!paths.game_data_root.empty()) {
     return;
   }
+#if defined(__ANDROID__)
+  auto is_complete_game = [](const std::filesystem::path& candidate) {
+    std::error_code error;
+    for (const char* file : {"default.xex", "xarchive_cache.rpf", "xarchive_audio.rpf",
+                            "xarchive_audlo.rpf", "xarchive_music.rpf"}) {
+      error.clear();
+      if (!std::filesystem::is_regular_file(candidate / file, error) || error) return false;
+    }
+    return true;
+  };
+  const std::filesystem::path shared_root = "/storage/emulated/0";
+  const std::filesystem::path preferred_mlr = shared_root / "MLR";
+  for (const auto& candidate : {preferred_mlr, preferred_mlr / "game"}) {
+    const bool complete_game = is_complete_game(candidate);
+    if (!g_android_path_diagnostics.empty()) g_android_path_diagnostics += "; ";
+    g_android_path_diagnostics += "MLR candidate [" + candidate.string() + " complete=" +
+                                  (complete_game ? "yes" : "no") + "]";
+    if (complete_game) {
+      paths.game_data_root = candidate;
+      return;
+    }
+  }
+#endif
   std::filesystem::path folder = rex::filesystem::GetExecutableFolder();
   for (int level = 0; level < 5 && !folder.empty(); ++level) {
     std::error_code error;
@@ -41,22 +177,53 @@ void MclaApp::OnConfigurePaths(rex::PathConfig& paths) {
     folder = folder.parent_path();
   }
 #if defined(__ANDROID__)
-  // SDL returns this app-specific storage; copy the extracted game to files/game/.
+  // Fallback to app-owned storage, then scan shared storage if the user granted access.
+  if (!g_android_path_diagnostics.empty()) g_android_path_diagnostics += "; ";
+  g_android_path_diagnostics += "Android game candidates:";
   const char* storage_roots[] = {
       SDL_GetAndroidExternalStoragePath(),
       SDL_GetAndroidInternalStoragePath(),
+      "/storage/emulated/0/Android/data/org.mcla.recomp/files",
   };
   for (const char* root : storage_roots) {
+    if (!paths.game_data_root.empty()) break;
     if (!root) {
+      g_android_path_diagnostics += " <null>";
       continue;
     }
     const std::filesystem::path game_root = std::filesystem::path(root) / "game";
-    std::error_code error;
-    if (std::filesystem::exists(game_root / "default.xex", error)) {
+    const bool complete_game = is_complete_game(game_root);
+    g_android_path_diagnostics += " [" + game_root.string() + " complete=" +
+                                  (complete_game ? "yes" : "no") + "]";
+    if (complete_game) {
       paths.game_data_root = game_root;
-      return;
     }
   }
+  if (paths.game_data_root.empty()) {
+    if (is_complete_game(shared_root)) {
+      paths.game_data_root = shared_root;
+    } else {
+      std::error_code scan_error;
+      for (std::filesystem::directory_iterator it(shared_root, scan_error), end;
+           !scan_error && it != end; it.increment(scan_error)) {
+        std::error_code entry_error;
+        if (!it->is_directory(entry_error) || entry_error) continue;
+        const auto candidate = it->path();
+        if (is_complete_game(candidate)) {
+          g_android_path_diagnostics += " selected=" + candidate.string();
+          paths.game_data_root = candidate;
+          break;
+        }
+      }
+      if (scan_error) g_android_path_diagnostics += " storage_scan_error=" + scan_error.message();
+    }
+  }
+#endif
+}
+
+void MclaApp::OnPostInitLogging() {
+#if defined(__ANDROID__)
+  if (!g_android_path_diagnostics.empty()) REXLOG_INFO("{}", g_android_path_diagnostics);
 #endif
 }
 

@@ -1,28 +1,62 @@
-# Android ARM64 recomp target (experimental)
+# Android ARM64 build (experimental)
 
-This target cross-compiles the ReXGlue MCLA recomp project to Android ARM64 and uses SDL3 with the Android Vulkan backend. It is intended to produce the native game library `libmain.so`; this does not create or install an APK.
+This repository contains an experimental Android target for the C++ MCLA Recomp project. It uses SDL3 and the ReXGlue runtime and targets `arm64-v8a`.
 
-The code generator must run on the Linux build host, then the generated C++ is compiled by the Android NDK for `arm64-v8a`. Keep the host ReXGlue v0.10.0 executable and its Linux runtime libraries separate from the Android SDK build tree.
+## Current status
 
-## Required inputs
+- The APK builds and has been installed on a Samsung Galaxy S23 running Android 16.
+- The game found its data, initialized Vulkan on that device, and rendered the city scene.
+- Performance is still poor. This is a development build, not a stable release; no 30 FPS claim is made.
+- Only the S23 has been tested. Other Android devices and GPUs remain unverified.
 
-- A user-owned, supported MCLA Complete Edition Xbox 360 dump extracted to `game/`, including `game/default.xex`.
-- Android NDK, CMake 3.25+, Ninja, and an Android-patched ReXGlue SDK v0.10.0 source tree.
-- A host-native ReXGlue v0.10.0 `rexglue` executable and host runtime libraries.
+## Game files
 
-The repository does not contain or distribute game code or assets. The build script stops before code generation if `game/default.xex` is absent.
+The APK does **not** include the game. Provide your own legally obtained and extracted Xbox 360 game data, including `default.xex` and the required RPF archives.
 
-## Build
+Preferred location:
+
+```text
+/storage/emulated/0/MLR/
+```
+
+Place the extracted game files directly in `MLR`, or put the game tree in `MLR/game`. The app checks these locations first. It also checks its app-specific storage as a fallback.
+
+On Android 11 and newer, shared-storage scanning requires granting **Allow access to manage all files** in the Android settings page opened by the app. Return to the app after granting access; if it started before access was granted, close and reopen it. Keep the game files out of Git and do not distribute them with the APK.
+
+## In-game options
+
+Open the game's pause menu, then **Settings**:
+
+- **Display** includes the FPS counter toggle, frame-rate target, motion blur and depth of field.
+- **Performance** includes Performance, Balanced and Original graphics presets, plus individual detail controls.
+- Changes are saved to the app's settings file.
+
+The renderer currently follows the Android display surface. The ReXGlue resolution-scale controls only support 1x and higher, so this build does not expose a misleading 720p/downscaling option yet.
+
+## Build requirements
+
+Use a Linux x86-64 build host with Java 21, Android SDK/NDK, CMake 3.31.6, Ninja, Python 3.12, and an Android-patched ReXGlue v0.10.0 SDK. The host-native `rexglue` code generator and its host libraries are also required.
+
+Set these environment variables to local tool paths:
 
 ```bash
-export ANDROID_NDK_HOME=/path/to/android-ndk
+export JAVA_HOME=/path/to/jdk-21
+export ANDROID_HOME=/path/to/android-sdk
 export REXSDK_DIR=/path/to/android-patched-rexglue-sdk
 export REXGLUE_CODEGEN=/path/to/linux-amd64/bin/rexglue
 export REXGLUE_HOST_LIB_DIR=/path/to/linux-amd64/lib
-export CMAKE=/path/to/cmake
-scripts/build_android.sh
+export PYTHON_EXECUTABLE=/usr/bin/python3.12
+export CMAKE=/path/to/android-sdk/cmake/3.31.6/bin/cmake
 ```
 
-The configure preset targets arm64-v8a, Android API 26, Vulkan enabled, with D3D12 and Tracy disabled. The Android folder includes SDLActivity, Gradle, the manifest, and native-library packaging. After the game dump and Android SDK are available, run ./gradlew -p android :app:assembleRelease. Copy the full extracted game tree to Android/data/org.mcla.recomp/files/game/; the app searches that app-specific external and internal storage path. Game data is not bundled in the APK. File-picker import and device launch still need implementation and testing. No APK has been built or installed.
+Then build from the repository root:
 
-The Android SDK patch is `patches/rexglue-v0.10.0-android-arm64.patch`, based directly on clean ReXGlue v0.10.0. It is separate from the desktop/PS5 patch series; do not stack those patches without rebasing overlapping files. The current Codespaces build uses this patch in `/tmp`.
+```bash
+./android/gradlew -p android :app:assembleRelease
+```
+
+The result is written to `android/app/build/outputs/apk/release/app-release.apk`. A local build may use the Android debug signing key when no custom signing variables are set; that key is for testing only. Never commit signing keys or passwords.
+
+## Repository hygiene
+
+Game dumps, generated game code, SDK contents, build outputs, logs, and signing keys are ignored by Git. Do not remove those ignore rules or commit those files.

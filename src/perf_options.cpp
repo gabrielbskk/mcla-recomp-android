@@ -22,32 +22,44 @@
 #include <rex/runtime.h>
 #include <rex/system/xmemory.h>
 
-REXCVAR_DEFINE_BOOL(mcla_shadows, true, "MCLA", "Real-time shadows. Off is the largest saving");
-REXCVAR_DEFINE_BOOL(mcla_race_shadows, true, "MCLA",
+// Android builds start with the existing Performance preset; desktop keeps shipped defaults.
+#if defined(__ANDROID__)
+#define MCLA_DEFAULT(shipped, performance) performance
+#else
+#define MCLA_DEFAULT(shipped, performance) shipped
+#endif
+REXCVAR_DEFINE_BOOL(mcla_shadows, MCLA_DEFAULT(true, false), "MCLA",
+                    "Real-time shadows. Off is the largest saving");
+REXCVAR_DEFINE_BOOL(mcla_race_shadows, MCLA_DEFAULT(true, false), "MCLA",
                     "Shadows during races (applies at the next start of the game)");
-REXCVAR_DEFINE_BOOL(mcla_fast_car_shadows, false, "MCLA",
+REXCVAR_DEFINE_BOOL(mcla_fast_car_shadows, MCLA_DEFAULT(false, true), "MCLA",
                     "A simple blob shadow under cars instead of the real-time one (next start)");
-REXCVAR_DEFINE_BOOL(mcla_foliage_shadows, true, "MCLA", "Shadows cast by distant foliage");
-REXCVAR_DEFINE_BOOL(mcla_foliage_impostors, true, "MCLA",
+REXCVAR_DEFINE_BOOL(mcla_foliage_shadows, MCLA_DEFAULT(true, false), "MCLA",
+                    "Shadows cast by distant foliage");
+REXCVAR_DEFINE_BOOL(mcla_foliage_impostors, MCLA_DEFAULT(true, true), "MCLA",
                     "Billboards for distant trees (applies at the next load of the city)");
-REXCVAR_DEFINE_BOOL(mcla_fullscreen_blur, true, "MCLA", "The full-screen blur pass (next start)");
-REXCVAR_DEFINE_BOOL(mcla_msaa, true, "MCLA", "Multisample anti-aliasing (next start)");
-REXCVAR_DEFINE_DOUBLE(mcla_city_lod, 1.0, "MCLA",
+REXCVAR_DEFINE_BOOL(mcla_fullscreen_blur, MCLA_DEFAULT(true, false), "MCLA",
+                    "The full-screen blur pass (next start)");
+REXCVAR_DEFINE_BOOL(mcla_msaa, MCLA_DEFAULT(true, false), "MCLA",
+                    "Multisample anti-aliasing (next start)");
+REXCVAR_DEFINE_DOUBLE(mcla_city_lod, MCLA_DEFAULT(1.0, 0.5), "MCLA",
                       "Scale of the distance at which the city switches to less detail")
     .range(0.1, 4.0);
-REXCVAR_DEFINE_DOUBLE(mcla_traffic_lod, 1.0, "MCLA",
+REXCVAR_DEFINE_DOUBLE(mcla_traffic_lod, MCLA_DEFAULT(1.0, 0.5), "MCLA",
                       "Scale of the distance at which traffic switches to less detail")
     .range(0.1, 4.0);
-REXCVAR_DEFINE_DOUBLE(mcla_traffic_distance, 400.0, "MCLA",
+REXCVAR_DEFINE_DOUBLE(mcla_traffic_distance, MCLA_DEFAULT(400.0, 250.0), "MCLA",
                       "Distance in metres beyond which ambient traffic is removed (400 as shipped)")
     .range(100.0, 600.0);
-REXCVAR_DEFINE_DOUBLE(mcla_pedestrians, 1.0, "MCLA", "Pedestrian density scale").range(0.0, 1.0);
-REXCVAR_DEFINE_DOUBLE(mcla_parked_cars, 1.0, "MCLA", "Parked car density scale").range(0.0, 1.0);
+REXCVAR_DEFINE_DOUBLE(mcla_pedestrians, MCLA_DEFAULT(1.0, 0.5), "MCLA", "Pedestrian density scale").range(0.0, 1.0);
+REXCVAR_DEFINE_DOUBLE(mcla_parked_cars, MCLA_DEFAULT(1.0, 0.5), "MCLA", "Parked car density scale").range(0.0, 1.0);
 
 // For measuring what an option is worth. The title screen's camera wanders, so
 // two runs never show the same scene; this switches the named option between
 // as-shipped and reduced every four seconds within one run and logs frame time
 // and draws for each state, which compares like with like.
+#undef MCLA_DEFAULT
+
 REXCVAR_DEFINE_STRING(mcla_ab_test, "", "MCLA",
                       "Development: alternate one option every 4 s and log the frame cost of each "
                       "state. shadows, foliage, lod, density or all");

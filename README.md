@@ -1,4 +1,8 @@
-# MCLA
+# MCLA Recomp — Android ARM64 experimental fork
+
+This public fork focuses on bringing the C++ MCLA recomp to Android ARM64. The desktop and PS5 material below describes the upstream project; Android support is still experimental.
+
+AI tools assisted with parts of this port because I am still learning the skills needed to do all of this independently. I apologize for relying on that help and ask for patience while the work is reviewed and tested.
 
 Static recompilation of *Midnight Club: Los Angeles Complete Edition* (Xbox 360, title 545407F8) to native code, for Windows, Linux and jailbroken PS5 consoles.
 
@@ -15,8 +19,10 @@ Static recompilation of *Midnight Club: Los Angeles Complete Edition* (Xbox 360,
 | Windows, Direct3D 12 | Plays: career, races, garage and upgrades, with audio and a controller, at 30 FPS by default. |
 | Windows, Vulkan | Reaches the title screen; not tested further. |
 | Linux, Vulkan | Builds and plays natively: free roam holds 30 FPS on an Intel Core Ultra 5 238V laptop (Mesa ANV). Tested by one user. |
-| Android ARM64, Vulkan (experimental) | The ReXGlue runtime and Xenos GPU plugin build for Android ARM64; full game code generation and launch remain pending. |
+| Android ARM64 (experimental) | Builds and launches on one Samsung ARM64 device running Android 16, finds the game data, initializes Vulkan and renders the city. Performance is very poor; this is not a stable release, and other devices/GPUs are untested. |
 | PS5 (jailbroken) | Plays at a steady 30 FPS on a PS5 Pro (firmware 13.42); the zoomed-out map runs at 20 to 25. Also installed from scratch and played on a PS5 Slim (firmware 12.70). |
+
+For Android prerequisites, the `/storage/emulated/0/MLR` game-data folder, build steps, and current limitations, see [the Android guide](android/README.md). The APK contains no game data. Do not commit or distribute game files.
 
 Car reflections are fixed on every renderer (cars no longer come out white with a glow at night):
 

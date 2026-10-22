@@ -937,3 +937,52 @@ diff --git a/src/core/filesystem_posix.cpp b/src/core/filesystem_posix.cpp
    return s;
  #endif
  }
+diff --git a/src/ui/windowed_app_main_sdl.cpp b/src/ui/windowed_app_main_sdl.cpp
+--- a/src/ui/windowed_app_main_sdl.cpp
++++ b/src/ui/windowed_app_main_sdl.cpp
+@@ -55,7 +55,16 @@
+     }
+ #endif
+ 
+-    std::unique_ptr<rex::ui::WindowedApp> app = rex::ui::GetWindowedAppCreator()(app_context);
++#if REX_PLATFORM_ANDROID
++    auto app_creator = rex::ui::WindowedApp::GetCreator("mcla");
++#else
++    auto app_creator = rex::ui::GetWindowedAppCreator();
++#endif
++    if (!app_creator) {
++      REXLOG_ERROR("No windowed app creator registered");
++      return EXIT_FAILURE;
++    }
++    std::unique_ptr<rex::ui::WindowedApp> app = app_creator(app_context);
+ 
+     // Match remaining positional args to the app's expected options.
+     const auto& option_names = app->GetPositionalOptions();
+--- a/src/ui/rex_app.cpp
++++ b/src/ui/rex_app.cpp
+@@ -12,6 +12,9 @@
+ #include <rex/rex_app.h>
+ 
+ #include <cstdlib>
++#if defined(__ANDROID__)
++#include <SDL3/SDL_system.h>
++#endif
+ 
+ #include <rex/assert.h>
+ #include <rex/cvar.h>
+@@ -168,7 +171,15 @@
+                                         log_level_str, category_levels);
+   if (log_file_cvar.empty()) {
+     log_config.app_name = std::string(GetName());
++#if defined(__ANDROID__)
++    if (const char* internal_storage = SDL_GetAndroidExternalStoragePath()) {
++      log_config.log_dir = (std::filesystem::path(internal_storage) / "logs").string();
++    } else {
++      log_config.app_name.clear();
++    }
++#else
+     log_config.log_dir = (exe_dir / "logs").string();
++#endif
+   }
+ 
+   rex::InitLogging(log_config);

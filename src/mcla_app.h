@@ -4,7 +4,13 @@
 
 #pragma once
 
+#include <memory>
 #include <rex/rex_app.h>
+
+namespace rex::ui {
+class ImGuiDialog;
+class ImGuiDrawer;
+}  // namespace rex::ui
 
 class MclaApp : public rex::ReXApp {
  public:
@@ -16,14 +22,24 @@ class MclaApp : public rex::ReXApp {
         PPCImageConfig));
   }
 
+  ~MclaApp() override;
+  void SetFpsCounterVisible(bool visible);
+
  protected:
+  void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override;
   void OnConfigurePaths(rex::PathConfig& paths) override;
+  void OnPostInitLogging() override;
   void OnPreSetup(rex::RuntimeConfig& config) override;
   void OnPostSetup() override;
   void OnPreLaunchModule() override;
 
  private:
+  rex::ui::ImGuiDrawer* fps_drawer_ = nullptr;
+  std::unique_ptr<rex::ui::ImGuiDialog> fps_counter_dialog_;
+
   void InstallCrashTrace();
   void ConfigureFrameTiming();
   void StartProfilerIfRequested();
 };
+
+void MclaRequestFpsCounter(bool visible);

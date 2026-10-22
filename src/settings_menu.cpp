@@ -32,6 +32,9 @@
 
 REXCVAR_DEFINE_BOOL(mcla_motion_blur, true, "MCLA", "Motion blur");
 REXCVAR_DEFINE_BOOL(mcla_depth_of_field, true, "MCLA", "Depth of field blur");
+REXCVAR_DEFINE_BOOL(mcla_fps_counter, false, "MCLA", "Show a compact FPS counter");
+REXCVAR_DEFINE_STRING(mcla_graphics_preset, "performance", "MCLA",
+                      "Graphics preset: performance, balanced or original");
 REXCVAR_DEFINE_BOOL(mcla_settings_menu, true, "MCLA",
                     "Add the settings submenus to the pause menu");
 
@@ -342,6 +345,9 @@ std::string OptionGet(const char* name) {
 void OptionSet(const char* name, const char* value) {
   REXLOG_INFO("settings menu: {} = {}", name, value);
   rex::cvar::SetFlagByName(name, value);
+  if (std::strcmp(name, "mcla_fps_counter") == 0) {
+    MclaRequestFpsCounter(std::strcmp(value, "true") == 0);
+  }
 }
 
 enum class ItemKind { kToggle, kStringChoice, kNumberChoice };
@@ -374,6 +380,8 @@ constexpr const char* kPromptValues[] = {"auto", "xbox", "playstation"};
 constexpr const char* kPromptLabels[] = {"AUTO", "XBOX", "PLAYSTATION"};
 constexpr const char* kIntroValues[] = {"normal", "fast", "skip"};
 constexpr const char* kIntroLabels[] = {"NORMAL", "FAST", "SKIP (NO LOGO)"};
+constexpr const char* kGraphicsPresetValues[] = {"performance", "balanced", "original"};
+constexpr const char* kGraphicsPresetLabels[] = {"PERFORMANCE", "BALANCED", "ORIGINAL"};
 
 const ItemDef kDisplayItems[] = {
     {"PM_MxFps", ItemKind::kNumberChoice, "mcla_fps", "FPS TARGET", nullptr, nullptr, kFpsTargets,
@@ -386,16 +394,19 @@ const ItemDef kDisplayItems[] = {
 #endif
     {"PM_MxMotionBlur", ItemKind::kToggle, "mcla_motion_blur", "MOTION BLUR"},
     {"PM_MxDof", ItemKind::kToggle, "mcla_depth_of_field", "DEPTH OF FIELD"},
+    {"PM_MxFpsCounter", ItemKind::kToggle, "mcla_fps_counter", "FPS COUNTER"},
 };
 
 // Detail the game can do without when the frame rate matters more; all as
 // shipped by default (src/perf_options.cpp). Rows marked NEXT START are read
 // by the game once, when it starts.
 constexpr double kDetailScales[] = {0.5, 0.75, 1.0};
-constexpr double kDensityScales[] = {0.0, 0.5, 1.0};
+constexpr double kDensityScales[] = {0.0, 0.5, 0.75, 1.0};
 constexpr double kTrafficDistances[] = {250.0, 325.0, 400.0};
 
 const ItemDef kPerformanceItems[] = {
+    {"PM_MxGraphicsPreset", ItemKind::kStringChoice, "mcla_graphics_preset", "GRAPHICS PRESET",
+     kGraphicsPresetValues, kGraphicsPresetLabels, nullptr, 3},
     {"PM_MxSingleTile", ItemKind::kToggle, "mcla_single_tile", "SINGLE TILE RENDERING"},
     {"PM_MxFenceYield", ItemKind::kToggle, "mcla_fence_yield", "GPU WAIT YIELD"},
     {"PM_MxShadows", ItemKind::kToggle, "mcla_shadows", "SHADOWS"},
@@ -407,9 +418,9 @@ const ItemDef kPerformanceItems[] = {
     {"PM_MxTrafficDist", ItemKind::kNumberChoice, "mcla_traffic_distance", "TRAFFIC DISTANCE",
      nullptr, nullptr, kTrafficDistances, 3, "%.0f"},
     {"PM_MxPeds", ItemKind::kNumberChoice, "mcla_pedestrians", "PEDESTRIANS", nullptr, nullptr,
-     kDensityScales, 3, "%.1f", "NONE"},
+     kDensityScales, 4, "%.2g", "NONE"},
     {"PM_MxParked", ItemKind::kNumberChoice, "mcla_parked_cars", "PARKED CARS", nullptr, nullptr,
-     kDensityScales, 3, "%.1f", "NONE"},
+     kDensityScales, 4, "%.2g", "NONE"},
     {"PM_MxRaceShadows", ItemKind::kToggle, "mcla_race_shadows", "RACE SHADOWS (NEXT START)"},
     {"PM_MxFastCarShadows", ItemKind::kToggle, "mcla_fast_car_shadows",
      "SIMPLE CAR SHADOWS (NEXT START)"},
@@ -498,6 +509,30 @@ int ItemCurrentIndex(const ItemDef& item) {
 
 std::atomic<bool> g_settings_dirty{false};
 
+void ApplyGraphicsPreset(const char* preset) {
+  const bool performance = std::strcmp(preset, "performance") == 0;
+  const bool balanced = std::strcmp(preset, "balanced") == 0;
+  const char* quality = performance ? "0.5" : balanced ? "0.75" : "1.0";
+  const char* density = performance ? "0.5" : balanced ? "0.75" : "1.0";
+  const char* traffic_distance = performance ? "250" : balanced ? "325" : "400";
+
+  OptionSet("mcla_shadows", performance ? "false" : "true");
+  OptionSet("mcla_race_shadows", performance ? "false" : "true");
+  OptionSet("mcla_fast_car_shadows", performance ? "true" : "false");
+  OptionSet("mcla_foliage_shadows", performance || balanced ? "false" : "true");
+  OptionSet("mcla_city_lod", quality);
+  OptionSet("mcla_traffic_lod", quality);
+  OptionSet("mcla_traffic_distance", traffic_distance);
+  OptionSet("mcla_pedestrians", density);
+  OptionSet("mcla_parked_cars", density);
+  OptionSet("mcla_foliage_impostors", "true");
+  OptionSet("mcla_fullscreen_blur", performance ? "false" : "true");
+  OptionSet("mcla_msaa", performance || balanced ? "false" : "true");
+  OptionSet("mcla_motion_blur", performance ? "false" : "true");
+  OptionSet("mcla_depth_of_field", performance ? "false" : "true");
+  g_settings_dirty.store(true, std::memory_order_relaxed);
+}
+
 void ItemSetIndex(const ItemDef& item, int index) {
   if (index < 0 || index >= ItemValueCount(item)) {
     return;
@@ -508,6 +543,9 @@ void ItemSetIndex(const ItemDef& item, int index) {
       break;
     case ItemKind::kStringChoice:
       OptionSet(item.option, item.values[index]);
+      if (std::strcmp(item.option, "mcla_graphics_preset") == 0) {
+        ApplyGraphicsPreset(item.values[index]);
+      }
       break;
     case ItemKind::kNumberChoice: {
       char buffer[32];
