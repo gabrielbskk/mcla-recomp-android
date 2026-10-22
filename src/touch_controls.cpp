@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <deque>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -127,10 +128,25 @@ protected:
       return;
     }
 
+    std::deque<SDL_Event> pending_events;
+    bool pending_events_overflowed = false;
+    {
+      std::lock_guard<std::mutex> queue_guard(pending_touch_mutex_);
+      pending_events.swap(pending_touch_events_);
+      pending_events_overflowed = pending_touch_overflowed_;
+      pending_touch_overflowed_ = false;
+    }
+
     std::lock_guard<std::mutex> guard(state_mutex_);
     display_width_ = display.x;
     display_height_ = display.y;
     layout_ = MakeLayout(display.x, display.y);
+    if (pending_events_overflowed) {
+      ReleaseAllLocked();
+    }
+    for (const SDL_Event &event : pending_events) {
+      HandleFingerEventLocked(event);
+    }
     if (visible_ && fingers_.empty() &&
         Clock::now() - last_touch_ >= std::chrono::seconds(5)) {
       visible_ = false;
@@ -171,9 +187,48 @@ private:
 
     std::lock_guard<std::mutex> guard(g_dialog_mutex);
     if (g_dialog) {
-      g_dialog->HandleFingerEvent(*event);
+      // SDL invokes event watches while it is dispatching an event. Updating
+      // the virtual joystick here pushes more SDL events and can deadlock the
+      // event-watch lock against the Android touch callback. Defer all SDL
+      // joystick calls until OnDraw drains this small queue.
+      g_dialog->QueueFingerEvent(*event);
     }
     return true;
+  }
+
+  void QueueFingerEvent(const SDL_Event &event) {
+    std::lock_guard<std::mutex> guard(pending_touch_mutex_);
+    if (event.type == SDL_EVENT_FINGER_MOTION) {
+      const auto &touch = event.tfinger;
+      for (auto it = pending_touch_events_.rbegin();
+           it != pending_touch_events_.rend(); ++it) {
+        const auto &queued_touch = it->tfinger;
+        if (queued_touch.touchID == touch.touchID &&
+            queued_touch.fingerID == touch.fingerID) {
+          if (it->type == SDL_EVENT_FINGER_MOTION) {
+            *it = event;
+            return;
+          }
+          break;
+        }
+      }
+      if (pending_touch_events_.size() >= kMaxPendingTouchEvents) {
+        return;
+      }
+    } else if (pending_touch_events_.size() >= kMaxPendingTouchEvents) {
+      const auto motion = std::find_if(
+          pending_touch_events_.begin(), pending_touch_events_.end(),
+          [](const SDL_Event &queued_event) {
+            return queued_event.type == SDL_EVENT_FINGER_MOTION;
+          });
+      if (motion != pending_touch_events_.end()) {
+        pending_touch_events_.erase(motion);
+      } else {
+        pending_touch_overflowed_ = true;
+        return;
+      }
+    }
+    pending_touch_events_.push_back(event);
   }
 
   void EnsureVirtualGamepad() {
@@ -269,11 +324,10 @@ private:
     return Control::kNone;
   }
 
-  void HandleFingerEvent(const SDL_Event &event) {
+  void HandleFingerEventLocked(const SDL_Event &event) {
     const auto &touch = event.tfinger;
     const FingerKey key{touch.touchID, touch.fingerID};
     const auto now = Clock::now();
-    std::lock_guard<std::mutex> guard(state_mutex_);
     const ImVec2 point(touch.x * display_width_, touch.y * display_height_);
     last_touch_ = now;
 
@@ -498,6 +552,10 @@ private:
   }
 
   std::mutex state_mutex_;
+  std::mutex pending_touch_mutex_;
+  std::deque<SDL_Event> pending_touch_events_;
+  bool pending_touch_overflowed_ = false;
+  static constexpr size_t kMaxPendingTouchEvents = 256;
   std::map<FingerKey, Control> fingers_;
   std::array<int, SDL_GAMEPAD_BUTTON_COUNT> button_counts_{};
   std::array<int, SDL_GAMEPAD_AXIS_COUNT> trigger_counts_{};

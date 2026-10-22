@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply Android-specific Vulkan feature fallbacks to the external ReXGlue SDK."""
+"""Apply Android-specific defaults and Vulkan fallbacks to the ReXGlue SDK."""
 
 from pathlib import Path
 import argparse
@@ -63,6 +63,45 @@ VULKAN_CALLBACK_DECLARATION = (
     "#endif\n",
 )
 
+VIDEO_MODE_DEFAULTS = (
+    "REXCVAR_DEFINE_INT32(video_mode_width, 1280, \"Display\", \"Guest video mode width in pixels\")\n"
+    "    .range(640, 0x0FFF)\n"
+    "    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);\n\n"
+    "REXCVAR_DEFINE_INT32(video_mode_height, 720, \"Display\", \"Guest video mode height in pixels\")\n"
+    "    .range(480, 0x0FFF)\n"
+    "    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);",
+    "#if defined(__ANDROID__)\n"
+    "// Start at 540p to reduce the guest's raster workload on mobile GPUs.\n"
+    "REXCVAR_DEFINE_INT32(video_mode_width, 960, \"Display\", \"Guest video mode width in pixels\")\n"
+    "    .range(640, 0x0FFF)\n"
+    "    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);\n\n"
+    "REXCVAR_DEFINE_INT32(video_mode_height, 540, \"Display\", \"Guest video mode height in pixels\")\n"
+    "    .range(480, 0x0FFF)\n"
+    "    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);\n"
+    "#else\n"
+    "REXCVAR_DEFINE_INT32(video_mode_width, 1280, \"Display\", \"Guest video mode width in pixels\")\n"
+    "    .range(640, 0x0FFF)\n"
+    "    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);\n\n"
+    "REXCVAR_DEFINE_INT32(video_mode_height, 720, \"Display\", \"Guest video mode height in pixels\")\n"
+    "    .range(480, 0x0FFF)\n"
+    "    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);\n"
+    "#endif",
+)
+
+PIPELINE_THREAD_DEFAULTS = (
+    "REXCVAR_DEFINE_INT32(\n"
+    "    vulkan_pipeline_creation_threads, -1, \"GPU/Vulkan\",\n",
+    "#if defined(__ANDROID__)\n"
+    "// Limit background shader compilation to leave CPU time for the game and renderer.\n"
+    "constexpr int kDefaultVulkanPipelineCreationThreads = 2;\n"
+    "#else\n"
+    "constexpr int kDefaultVulkanPipelineCreationThreads = -1;\n"
+    "#endif\n"
+    "REXCVAR_DEFINE_INT32(\n"
+    "    vulkan_pipeline_creation_threads, kDefaultVulkanPipelineCreationThreads, \"GPU/Vulkan\",\n",
+)
+
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -72,6 +111,21 @@ def main() -> None:
     source = args.sdk / "src/ui/vulkan/vulkan_device.cpp"
     if not source.is_file():
         raise SystemExit(f"ReXGlue Vulkan source not found: {source}")
+
+    pipeline_cache = args.sdk / "src/graphics/vulkan/pipeline_cache.cpp"
+    if not pipeline_cache.is_file():
+        raise SystemExit(f"ReXGlue Vulkan pipeline cache source not found: {pipeline_cache}")
+    pipeline_text = pipeline_cache.read_text(encoding="utf-8")
+    original, patched = PIPELINE_THREAD_DEFAULTS
+    if patched not in pipeline_text:
+        if pipeline_text.count(original) != 1:
+            raise SystemExit(
+                f"Expected one default Vulkan pipeline thread count; SDK may have changed: {pipeline_cache}"
+            )
+        pipeline_cache.write_text(pipeline_text.replace(original, patched, 1), encoding="utf-8")
+        print("Set Android Vulkan shader compilation to two background workers by default.")
+    else:
+        print("Android Vulkan shader compilation worker default already applied.")
 
     text = source.read_text(encoding="utf-8")
     changed = False
@@ -122,6 +176,17 @@ def main() -> None:
     if instance_changed:
         instance.write_text(instance_text, encoding="utf-8")
         print("Added Android custom-driver loading with system Vulkan fallback.")
+
+    window = args.sdk / "src/ui/window.cpp"
+    if not window.is_file():
+        raise SystemExit(f"ReXGlue window source not found: {window}")
+    window_text = window.read_text(encoding="utf-8")
+    original, patched = VIDEO_MODE_DEFAULTS
+    if patched not in window_text:
+        if window_text.count(original) != 1:
+            raise SystemExit(f"Expected one default guest video mode in {window}; SDK may have changed")
+        window.write_text(window_text.replace(original, patched, 1), encoding="utf-8")
+        print("Set the Android guest video mode default to 960x540 (540p).")
 
 
 if __name__ == "__main__":

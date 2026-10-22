@@ -33,6 +33,8 @@
 REXCVAR_DEFINE_BOOL(mcla_motion_blur, true, "MCLA", "Motion blur");
 REXCVAR_DEFINE_BOOL(mcla_depth_of_field, true, "MCLA", "Depth of field blur");
 REXCVAR_DEFINE_BOOL(mcla_fps_counter, false, "MCLA", "Show a compact FPS counter");
+REXCVAR_DEFINE_STRING(mcla_resolution, "540p", "MCLA",
+                      "Guest resolution: 540p, 720p or 1080p (next start)");
 REXCVAR_DEFINE_STRING(mcla_graphics_preset, "performance", "MCLA",
                       "Graphics preset: performance, balanced or original");
 REXCVAR_DEFINE_BOOL(mcla_settings_menu, true, "MCLA",
@@ -345,6 +347,26 @@ std::string OptionGet(const char* name) {
 void OptionSet(const char* name, const char* value) {
   REXLOG_INFO("settings menu: {} = {}", name, value);
   rex::cvar::SetFlagByName(name, value);
+  if (std::strcmp(name, "mcla_resolution") == 0) {
+    const char* width = nullptr;
+    const char* height = nullptr;
+    if (std::strcmp(value, "540p") == 0) {
+      width = "960";
+      height = "540";
+    } else if (std::strcmp(value, "720p") == 0) {
+      width = "1280";
+      height = "720";
+    } else if (std::strcmp(value, "1080p") == 0) {
+      width = "1920";
+      height = "1080";
+    }
+    if (!width) {
+      REXLOG_WARN("settings menu: ignoring unsupported resolution '{}'", value);
+      return;
+    }
+    rex::cvar::SetFlagByName("video_mode_width", width);
+    rex::cvar::SetFlagByName("video_mode_height", height);
+  }
   if (std::strcmp(name, "mcla_fps_counter") == 0) {
     MclaRequestFpsCounter(std::strcmp(value, "true") == 0);
   }
@@ -382,8 +404,14 @@ constexpr const char* kIntroValues[] = {"normal", "fast", "skip"};
 constexpr const char* kIntroLabels[] = {"NORMAL", "FAST", "SKIP (NO LOGO)"};
 constexpr const char* kGraphicsPresetValues[] = {"performance", "balanced", "original"};
 constexpr const char* kGraphicsPresetLabels[] = {"PERFORMANCE", "BALANCED", "ORIGINAL"};
+constexpr const char* kResolutionValues[] = {"540p", "720p", "1080p"};
+constexpr const char* kResolutionLabels[] = {"540P", "720P", "1080P"};
 
 const ItemDef kDisplayItems[] = {
+#if !REX_PLATFORM_PS5
+    {"PM_MxResolution", ItemKind::kStringChoice, "mcla_resolution", "RESOLUTION (NEXT START)",
+     kResolutionValues, kResolutionLabels, nullptr, 3},
+#endif
     {"PM_MxFps", ItemKind::kNumberChoice, "mcla_fps", "FPS TARGET", nullptr, nullptr, kFpsTargets,
      kFpsTargetCount, "%.0f", "UNCAPPED"},
 #if !REX_PLATFORM_PS5

@@ -45,6 +45,7 @@ XAPK is a third-party ZIP container, not an Android install format. Use an XAPK 
 Open the game's pause menu, then **Settings**:
 
 - **Display** includes the FPS counter toggle, frame-rate target, motion blur and depth of field.
+- Android starts with a 960×540 guest video mode; **Display → Resolution** can select 540p, 720p or 1080p (restart required). The Android surface still fills the phone screen.
 - **Performance** includes Performance, Balanced and Original graphics presets, plus individual detail controls.
 - Changes are saved to the app's settings file.
 
@@ -56,7 +57,9 @@ The Android native C++ targets use `-O3` for the `RelWithDebInfo` release config
 
 On the next launch, the launcher exports the previous runtime's rotating log files and an Android process-exit report (including the system trace when available) to `Documents/MCLA Recomp`. The report includes device model, Android version, app version, and the prior process exit reason. Export failures do not block startup.
 
-The renderer currently follows the Android display surface. The ReXGlue resolution-scale controls only support 1x and higher, so this build does not expose a misleading 720p/downscaling option yet.
+Android Vulkan shader warm-up defaults to two background pipeline workers to reduce CPU contention with emulation and rendering. This changes warm-up concurrency; it does not guarantee a higher steady-state FPS.
+
+The Android guest video mode defaults to 540p to reduce pixel work, with the presenter scaling it to the phone display. This only helps if the game follows the Xbox video mode; it does not reduce CPU-side simulation or draw-call work. The current Android build uses bilinear scaling, so 540p may look softer than 720p. We still need an on-device frame-time comparison before claiming an FPS gain. ReXGlue's separate render-target scale remains 1x or higher.
 
 ## Optional Vulkan drivers
 
