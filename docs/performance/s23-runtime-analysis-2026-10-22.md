@@ -21,6 +21,10 @@ The guest timer hook no longer reads the ReXGlue draw-call snapshot counter on e
 
 Cppcheck 2.22 analyzed all 14 project C++ source files with Android enabled. It found only `uninitMemberVarNoCtor` warnings for structs populated with aggregate initialization; source inspection confirmed those fields are supplied at each construction site. No null-pointer, bounds, or performance warnings were reported. This is static analysis only, not a native Android build.
 
+## Build-station audit
+
+The Void Linux notebook now has CMake 4.2.2, Ninja 1.13.2, Clang/LLD 21.1.8, OpenJDK 21, pkg-config, and Cppcheck 2.22. Its hardware is 1.9 GiB RAM, 4 CPU cores, and 4 GiB swap. The notebook still has no Android NDK/SDK CMake toolchain, host ReXGlue code generator, or `game/default.xex`, so it cannot currently produce or validate the Android native target. No full compile was attempted on the low-memory notebook or the S23 while the phone is in use. The Cppcheck run is the only validation of the latest patch; no runtime FPS gain is claimed.
+
 ## Next investigation
 
 The Vulkan backend currently passes `VK_NULL_HANDLE` as the `VkPipelineCache` argument to `vkCreateGraphicsPipelines`. ReXGlue's persistent Xenos shader and pipeline-description storage therefore does not provide a persisted Vulkan driver pipeline cache. A device/driver-keyed Vulkan cache is a promising next target, but it needs careful synchronization and cache invalidation before implementation. The current Termux environment lacks the Android CMake toolchain and full SDK platform files, so the SDK-patch changes have not been compiled here.
