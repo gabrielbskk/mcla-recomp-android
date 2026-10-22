@@ -146,6 +146,33 @@ PIPELINE_SUBMISSION_WAIT = (
     "#endif",
 )
 
+PIPELINE_CREATION_LOGS = (
+    "  if (creation_arguments.pixel_shader) {\n"
+    "    REXGPU_INFO(\"Creating graphics pipeline state with VS {:016X}, PS {:016X}\",\n"
+    "                creation_arguments.vertex_shader->shader().ucode_data_hash(),\n"
+    "                creation_arguments.pixel_shader->shader().ucode_data_hash());\n"
+    "  } else {\n"
+    "    REXGPU_INFO(\"Creating graphics pipeline state with VS {:016X}\",\n"
+    "                creation_arguments.vertex_shader->shader().ucode_data_hash());\n"
+    "  }",
+    "  if (creation_arguments.pixel_shader) {\n"
+    "#if REX_PLATFORM_ANDROID\n"
+    "    REXGPU_DEBUG(\"Creating graphics pipeline state with VS {:016X}, PS {:016X}\",\n"
+    "#else\n"
+    "    REXGPU_INFO(\"Creating graphics pipeline state with VS {:016X}, PS {:016X}\",\n"
+    "#endif\n"
+    "                creation_arguments.vertex_shader->shader().ucode_data_hash(),\n"
+    "                creation_arguments.pixel_shader->shader().ucode_data_hash());\n"
+    "  } else {\n"
+    "#if REX_PLATFORM_ANDROID\n"
+    "    REXGPU_DEBUG(\"Creating graphics pipeline state with VS {:016X}\",\n"
+    "#else\n"
+    "    REXGPU_INFO(\"Creating graphics pipeline state with VS {:016X}\",\n"
+    "#endif\n"
+    "                creation_arguments.vertex_shader->shader().ucode_data_hash());\n"
+    "  }",
+)
+
 
 
 def main() -> None:
@@ -184,6 +211,19 @@ def main() -> None:
         print("Kept Android async pipeline creation off the graphics submission thread.")
     else:
         print("Android async pipeline submission behavior already applied.")
+
+    pipeline_text = pipeline_cache.read_text(encoding="utf-8")
+    original, patched = PIPELINE_CREATION_LOGS
+    if patched not in pipeline_text:
+        if pipeline_text.count(original) != 1:
+            raise SystemExit(
+                "Expected one Vulkan pipeline creation log block; SDK may have changed: "
+                f"{pipeline_cache}"
+            )
+        pipeline_cache.write_text(pipeline_text.replace(original, patched, 1), encoding="utf-8")
+        print("Reduced Android Vulkan pipeline creation logs from info to debug.")
+    else:
+        print("Android Vulkan pipeline creation logs are already debug-only.")
 
     text = source.read_text(encoding="utf-8")
     changed = False

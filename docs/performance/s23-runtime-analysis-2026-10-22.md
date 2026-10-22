@@ -1,0 +1,21 @@
+# S23 runtime performance analysis — 2026-10-22
+
+Source: exported diagnostics and runtime log `Documents/MCLA Recomp/log-mcla_010.log.txt` from the Samsung SM-S911B, Android 16. No ADB session was used for this review.
+
+## Observations
+
+- Vulkan initialized on the system Qualcomm Adreno 740 driver. The log contains no fatal exception; the exported previous-process reason is `USER_REQUESTED` with status 0.
+- The game-frame sample starts at 30.1 ticks/s, then falls to 12.0 and 2.0–4.2 ticks/s; p95 tick intervals rise as high as 1,553 ms. This confirms severe stalls in the guest game loop.
+- Process VmRSS rises from about 909 MiB to about 1,680 MiB during the same run. These values are process resident memory, not total Android PSS.
+- The log contains 497 `Creating graphics pipeline state` INFO messages during the run, including after the initial warm-up period. The draw-call counter reports zero per tick throughout, so it is not useful for identifying the bottleneck and must not be trusted as a measurement.
+- The `android perf` render-loop estimate is an ImGui/UI-loop estimate. It is not the number of frames successfully presented by Vulkan and does not contradict the much slower game-frame samples.
+
+## Change made
+
+The Android ReXGlue patch now logs per-pipeline creation details at DEBUG level while retaining INFO on desktop. This reduces high-volume formatting and log writes during pipeline warm-up. Pipeline creation itself is still expensive, so this change is a small overhead reduction and is not claimed to fix the 1–4 tick/s stall.
+
+## Next investigation
+
+The Vulkan backend currently passes `VK_NULL_HANDLE` as the `VkPipelineCache` argument to `vkCreateGraphicsPipelines`. ReXGlue's persistent Xenos shader and pipeline-description storage therefore does not provide a persisted Vulkan driver pipeline cache. A device/driver-keyed Vulkan cache is a promising next target, but it needs careful synchronization and cache invalidation before implementation. The current Termux environment lacks the Android CMake toolchain and full SDK platform files, so the SDK-patch changes have not been compiled here.
+
+No APK was generated or installed as part of this analysis.
