@@ -3,11 +3,12 @@
 ## Result
 
 The C++ recompilation and Android shared-library link completed successfully
-on the S23 using Termux. The artifact is
-`$PREFIX/tmp/mcla-s23-native-android-build/libmain.so` (77 MiB).
+on the S23 using Termux. After the Performance preset density adjustment, the
+latest artifact is `$PREFIX/tmp/mcla-s23-native-android-build/libmain.so`
+(77 MiB; 80,024,784 bytes).
 
 - ELF: 64-bit little-endian AArch64 shared object, Android API 24.
-- SHA-256: `8015e6d14ea144a27ae560975783fe636d73b1944c4e73fb7bfb7c65ae9f5880`
+- SHA-256: `a872e33f66707b905dfcbee94a14a4db72d7475c0f4059856727541b30d40171`
 - Direct dynamic dependencies: `librexruntime.so`, `libc.so`, `libm.so`,
   `libiconv.so`, `libOpenSLES.so`, `libdl.so`, `liblog.so`, `libandroid.so`,
   and `libc++_shared.so`.
