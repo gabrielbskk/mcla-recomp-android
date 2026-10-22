@@ -52,6 +52,14 @@ The renderer currently follows the Android display surface. The ReXGlue resoluti
 
 Use a Linux x86-64 build host with Java 21, Android SDK/NDK, CMake 3.31.6, Ninja, Python 3.12, and an Android-patched ReXGlue v0.10.0 SDK. The host-native `rexglue` code generator and its host libraries are also required.
 
+For the configured GitHub Codespace, run this from the repository root:
+
+```bash
+./scripts/build_android_codespace.sh
+```
+
+The script uses the Codespace Android SDK and local ReXGlue host code generator, and writes the APK under `android/app/build/outputs/apk/release/`. It does not install the APK on a connected phone. Release lint analysis is skipped by default because the current Codespaces Android lint metadata makes that task fail; set `MCLA_RUN_ANDROID_LINT=1` to include it.
+
 Set these environment variables to local tool paths:
 
 ```bash
