@@ -9,11 +9,14 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
 #if defined(__ANDROID__)
 #include <SDL3/SDL_system.h>
+#include <unistd.h>
 #endif
 
 #include <imgui.h>
@@ -85,11 +88,126 @@ class FpsCounterDialog final : public rex::ui::ImGuiDialog {
     return 0;
   }
 
+  struct ThreadCpuSample {
+    std::string name;
+    uint64_t ticks = 0;
+  };
+
+  static std::map<uint64_t, ThreadCpuSample> ReadThreadCpuSamples() {
+    std::map<uint64_t, ThreadCpuSample> samples;
+    const long ticks_per_second = sysconf(_SC_CLK_TCK);
+    if (ticks_per_second <= 0) {
+      return samples;
+    }
+    std::error_code error;
+    for (std::filesystem::directory_iterator it("/proc/self/task", error), end;
+         !error && it != end; it.increment(error)) {
+      const std::string tid_text = it->path().filename().string();
+      uint64_t tid = 0;
+      try {
+        tid = std::stoull(tid_text);
+      } catch (...) {
+        continue;
+      }
+      std::ifstream stat(it->path() / "stat");
+      std::string line;
+      if (!std::getline(stat, line)) {
+        continue;
+      }
+      // The command name is parenthesized and may itself contain spaces or
+      // parentheses, so parse the numeric fields only after its final ')'.
+      const size_t command_end = line.rfind(')');
+      if (command_end == std::string::npos || command_end + 1 >= line.size()) {
+        continue;
+      }
+      std::istringstream fields(line.substr(command_end + 1));
+      std::string field;
+      uint64_t user_ticks = 0;
+      uint64_t system_ticks = 0;
+      // The remaining fields start at field 3 (state); utime/stime are 14/15.
+      for (int index = 0; index <= 12; ++index) {
+        if (!(fields >> field)) {
+          break;
+        }
+        if (index == 11) {
+          try {
+            user_ticks = std::stoull(field);
+          } catch (...) {
+            user_ticks = 0;
+          }
+        } else if (index == 12) {
+          try {
+            system_ticks = std::stoull(field);
+          } catch (...) {
+            system_ticks = 0;
+          }
+        }
+      }
+      if (!user_ticks && !system_ticks) {
+        continue;
+      }
+      std::ifstream comm(it->path() / "comm");
+      std::string name;
+      std::getline(comm, name);
+      samples.emplace(tid, ThreadCpuSample{std::move(name), user_ticks + system_ticks});
+    }
+    return samples;
+  }
+
+  void RecordThreadCpuSample(std::chrono::steady_clock::time_point now) {
+    const auto current = ReadThreadCpuSamples();
+    if (thread_cpu_sample_started_ == std::chrono::steady_clock::time_point{}) {
+      thread_cpu_previous_ = current;
+      thread_cpu_sample_started_ = now;
+      return;
+    }
+    const double elapsed =
+        std::chrono::duration<double>(now - thread_cpu_sample_started_).count();
+    const long ticks_per_second = sysconf(_SC_CLK_TCK);
+    if (elapsed <= 0.0 || ticks_per_second <= 0) {
+      thread_cpu_previous_ = current;
+      thread_cpu_sample_started_ = now;
+      return;
+    }
+
+    struct BusyThread {
+      std::string name;
+      uint64_t tid;
+      double cpu_percent;
+    };
+    std::vector<BusyThread> busy;
+    for (const auto& [tid, sample] : current) {
+      const auto previous = thread_cpu_previous_.find(tid);
+      if (previous == thread_cpu_previous_.end() || sample.ticks < previous->second.ticks) {
+        continue;
+      }
+      const double cpu_percent =
+          100.0 * double(sample.ticks - previous->second.ticks) / double(ticks_per_second) / elapsed;
+      busy.push_back({sample.name, tid, cpu_percent});
+    }
+    std::sort(busy.begin(), busy.end(), [](const BusyThread& a, const BusyThread& b) {
+      return a.cpu_percent > b.cpu_percent;
+    });
+    std::ostringstream top;
+    const size_t count = std::min<size_t>(5, busy.size());
+    for (size_t i = 0; i < count; ++i) {
+      if (i) {
+        top << ", ";
+      }
+      top << busy[i].name << "#" << busy[i].tid << "=" << std::fixed << std::setprecision(1)
+          << busy[i].cpu_percent << "%";
+    }
+    REXLOG_INFO("android thread CPU (one core=100%): {}", top.str());
+    thread_cpu_previous_ = current;
+    thread_cpu_sample_started_ = now;
+  }
+
   void RecordPerformanceSample(float delta_time) {
     using Clock = std::chrono::steady_clock;
     const auto now = Clock::now();
     if (sample_started_ == Clock::time_point{}) {
       sample_started_ = now;
+      RecordThreadCpuSample(now);
     }
     ++sample_frames_;
     frame_times_ms_.push_back(delta_time * 1000.0f);
@@ -106,6 +224,7 @@ class FpsCounterDialog final : public rex::ui::ImGuiDialog {
                 "max {:.1f} ms, VmRSS {} KiB",
                 static_cast<double>(sample_frames_) / elapsed_seconds,
                 frame_times_ms_[p95_index], frame_times_ms_.back(), ReadVmRssKiB());
+    RecordThreadCpuSample(now);
     frame_times_ms_.clear();
     sample_frames_ = 0;
     sample_started_ = now;
@@ -114,6 +233,8 @@ class FpsCounterDialog final : public rex::ui::ImGuiDialog {
   std::chrono::steady_clock::time_point sample_started_{};
   uint64_t sample_frames_ = 0;
   std::vector<float> frame_times_ms_;
+  std::chrono::steady_clock::time_point thread_cpu_sample_started_{};
+  std::map<uint64_t, ThreadCpuSample> thread_cpu_previous_;
 #endif
   bool overlay_visible_ = false;
   float smoothed_fps_ = 0.0f;
