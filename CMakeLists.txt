@@ -15,6 +15,13 @@ if(ANDROID AND CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-O3>")
 endif()
 
+if(ANDROID)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libadrenotools/CMakeLists.txt")
+        message(FATAL_ERROR "Initialize submodules recursively to build Android Vulkan driver support.")
+    endif()
+    add_subdirectory(third_party/libadrenotools)
+endif()
+
 include(generated/rexglue.cmake)
 if(ANDROID)
     include_directories("${REXSDK_DIR}/thirdparty/libucontext/include"
@@ -41,7 +48,9 @@ set(MCLA_SOURCES
 if(ANDROID)
     # SDL3 Android loads libmain.so and enters through SDL_main.
     add_library(mcla SHARED ${MCLA_SOURCES})
-    target_sources(mcla PRIVATE src/touch_controls.cpp)
+    target_sources(mcla PRIVATE src/touch_controls.cpp src/android_gpu_driver.cpp)
+    target_include_directories(mcla PRIVATE third_party/libadrenotools/include)
+    target_link_libraries(mcla PRIVATE adrenotools)
     set_target_properties(mcla PROPERTIES OUTPUT_NAME main)
     target_compile_options(mcla PRIVATE -include SDL3/SDL_main.h)
 elseif(WIN32)

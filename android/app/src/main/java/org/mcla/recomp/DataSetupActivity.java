@@ -3,6 +3,7 @@ package org.mcla.recomp;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -388,7 +389,28 @@ public final class DataSetupActivity extends Activity {
     private void launchGame() {
         if (launching) return;
         launching = true;
-        startActivity(new Intent(this, MclaActivity.class));
-        finish();
+        action.setEnabled(false);
+        action.setText("Preparando…");
+        progress.setVisibility(ProgressBar.VISIBLE);
+        progress.setIndeterminate(true);
+        showStatus("Identificando a GPU e preparando o driver gráfico…");
+        Context appContext = getApplicationContext();
+        new Thread(() -> {
+            GpuDriverManager.Selection selection = GpuDriverManager.prepare(appContext);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                progress.setVisibility(ProgressBar.GONE);
+                showStatus(selection.message + " Abrindo o jogo…");
+                try {
+                    startActivity(new Intent(this, MclaActivity.class));
+                    finish();
+                } catch (RuntimeException exception) {
+                    launching = false;
+                    action.setEnabled(true);
+                    action.setText("Tentar novamente");
+                    showStatus("Não consegui abrir o jogo: " + exception.getMessage());
+                }
+            });
+        }, "mcla-gpu-driver-prepare").start();
     }
 }

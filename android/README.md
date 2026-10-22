@@ -9,6 +9,7 @@ This repository contains an experimental Android target for the C++ MCLA Recomp 
 - Performance is still poor. This is a development build, not a stable release; no 30 FPS claim is made.
 - A tester reported that the app did not open on a Mali-G52 device; no device log was supplied, so the cause is unknown. Mali-G57 and other GPUs remain unverified.
 - The current Android build enables Vulkan only. The Android build script enables ReXGlue's fallback paths when a GPU lacks optional geometry-shader or non-solid-fill features. The SDK version used here does not provide an OpenGL ES fallback, so ARM64 installation compatibility is not the same as GPU compatibility.
+- Optional bundled drivers are selected automatically only for their matching GPU: Turnip for Adreno 740 and PanVK for Mali-G52. Other GPUs use Android's system Vulkan driver. PanVK remains experimental and has not yet been validated with MCLA.
 
 ## Game files
 
@@ -56,6 +57,20 @@ The Android native C++ targets use `-O3` for the `RelWithDebInfo` release config
 On the next launch, the launcher exports the previous runtime's rotating log files and an Android process-exit report (including the system trace when available) to `Documents/MCLA Recomp`. The report includes device model, Android version, app version, and the prior process exit reason. Export failures do not block startup.
 
 The renderer currently follows the Android display surface. The ReXGlue resolution-scale controls only support 1x and higher, so this build does not expose a misleading 720p/downscaling option yet.
+
+## Optional Vulkan drivers
+
+The app can bundle the supplied ARM64 Turnip and PanVK driver archives in one APK. It detects the renderer through a temporary EGL context, stages only the matching driver under app-private internal storage, and probes it with Vulkan before passing it to ReXGlue. If loading or the device probe fails, startup uses the Android system Vulkan driver. A marker left by an abnormal process exit makes the next launch use the system driver once.
+
+The two driver ZIPs are intentionally not stored in this public repository. To build with them in the Codespace, copy the archives to its private filesystem and set both variables:
+
+```bash
+export MCLA_TURNIP_DRIVER_ZIP=/path/to/Turnip-v26.3.0-20261005-8G2-OneUI.zip
+export MCLA_PANVK_G52_DRIVER_ZIP=/path/to/PanVk-V7-0.0.2-alpha.zip
+./scripts/build_android_codespace.sh
+```
+
+The packaging script checks the pinned SHA-256 hashes, archive paths, metadata, ELF format, and ARM64 machine type before adding either archive to APK assets. Builds without both variables use the system Vulkan driver. Bundling either driver increases APK/install storage; PanVK's library expands to about 128 MB. `libadrenotools` and its linker hooks are included under their BSD-2-Clause license. The supplied Mesa driver archives do not contain license notices, so add the corresponding upstream notices before redistributing a build that bundles them.
 
 ## Build requirements
 

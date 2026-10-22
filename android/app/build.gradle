@@ -101,7 +101,7 @@ android {
                 if (pythonExecutable) {
                     arguments "-DPYTHON_EXECUTABLE=${pythonExecutable}"
                 }
-                targets 'mcla', 'rexgpu-xenos'
+                targets 'mcla', 'rexgpu-xenos', 'main_hook', 'hook_impl'
             }
         }
     }

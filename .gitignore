@@ -61,3 +61,4 @@ keys.*
 /android/build/
 /android/app/build/
 /android/app/.cxx/
+/android/app/src/main/assets/gpu_drivers/

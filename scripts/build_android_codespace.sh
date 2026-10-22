@@ -26,6 +26,23 @@ if [[ ! -f "${repo_root}/game/default.xex" ]]; then
     exit 1
 fi
 
+git -C "${repo_root}" submodule update --init --recursive third_party/libadrenotools
+
+turnip_driver_zip="${MCLA_TURNIP_DRIVER_ZIP:-}"
+panvk_driver_zip="${MCLA_PANVK_G52_DRIVER_ZIP:-}"
+if [[ -n "${turnip_driver_zip}" || -n "${panvk_driver_zip}" ]]; then
+    if [[ -z "${turnip_driver_zip}" || -z "${panvk_driver_zip}" ]]; then
+        echo "Set both MCLA_TURNIP_DRIVER_ZIP and MCLA_PANVK_G52_DRIVER_ZIP, or neither." >&2
+        exit 1
+    fi
+    python3 "${repo_root}/scripts/package_android_gpu_drivers.py" \
+        --turnip "${turnip_driver_zip}" \
+        --panvk "${panvk_driver_zip}" \
+        --output-dir "${repo_root}/android/app/src/main/assets/gpu_drivers"
+else
+    echo "Custom GPU driver archives not supplied; the APK will use Android's system Vulkan driver."
+fi
+
 # Enable the SDK's existing primitive/fill fallbacks on Android GPUs that lack
 # optional geometryShader or fillModeNonSolid Vulkan features.
 python3 "${repo_root}/scripts/patch_android_rexglue.py" --sdk "${REXSDK_DIR}"
