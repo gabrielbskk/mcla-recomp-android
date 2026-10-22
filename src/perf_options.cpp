@@ -50,7 +50,7 @@ REXCVAR_DEFINE_DOUBLE(mcla_city_lod, MCLA_DEFAULT(1.0, 0.25), "MCLA",
 REXCVAR_DEFINE_DOUBLE(mcla_traffic_lod, MCLA_DEFAULT(1.0, 0.25), "MCLA",
                       "Scale of the distance at which traffic switches to less detail")
     .range(0.1, 4.0);
-REXCVAR_DEFINE_DOUBLE(mcla_traffic_distance, MCLA_DEFAULT(400.0, 150.0), "MCLA",
+REXCVAR_DEFINE_DOUBLE(mcla_traffic_distance, MCLA_DEFAULT(400.0, 100.0), "MCLA",
                       "Distance in metres beyond which ambient traffic is removed (400 as shipped)")
     .range(100.0, 600.0);
 REXCVAR_DEFINE_DOUBLE(mcla_pedestrians, MCLA_DEFAULT(1.0, 0.25), "MCLA", "Pedestrian density scale").range(0.0, 1.0);
@@ -240,7 +240,7 @@ void SetReduced(const std::string& what, bool reduced) {
     rex::cvar::SetFlagByName("mcla_traffic_lod", reduced ? "0.25" : "1.0");
   }
   if (all || what == "density") {
-    rex::cvar::SetFlagByName("mcla_traffic_distance", reduced ? "150" : "400");
+    rex::cvar::SetFlagByName("mcla_traffic_distance", reduced ? "100" : "400");
     rex::cvar::SetFlagByName("mcla_pedestrians", reduced ? "0.25" : "1.0");
     rex::cvar::SetFlagByName("mcla_parked_cars", reduced ? "0.25" : "1.0");
   }

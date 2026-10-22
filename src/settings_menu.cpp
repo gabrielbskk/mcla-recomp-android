@@ -430,7 +430,7 @@ const ItemDef kDisplayItems[] = {
 // by the game once, when it starts.
 constexpr double kDetailScales[] = {0.25, 0.5, 0.75, 1.0};
 constexpr double kDensityScales[] = {0.0, 0.25, 0.5, 0.75, 1.0};
-constexpr double kTrafficDistances[] = {150.0, 200.0, 250.0, 325.0, 400.0};
+constexpr double kTrafficDistances[] = {100.0, 150.0, 200.0, 250.0, 325.0, 400.0};
 
 const ItemDef kPerformanceItems[] = {
     {"PM_MxGraphicsPreset", ItemKind::kStringChoice, "mcla_graphics_preset", "GRAPHICS PRESET",
@@ -444,7 +444,7 @@ const ItemDef kPerformanceItems[] = {
     {"PM_MxTrafficLod", ItemKind::kNumberChoice, "mcla_traffic_lod", "TRAFFIC DETAIL DISTANCE",
      nullptr, nullptr, kDetailScales, 4, "%.2f"},
     {"PM_MxTrafficDist", ItemKind::kNumberChoice, "mcla_traffic_distance", "TRAFFIC DISTANCE",
-     nullptr, nullptr, kTrafficDistances, 5, "%.0f"},
+     nullptr, nullptr, kTrafficDistances, 6, "%.0f"},
     {"PM_MxPeds", ItemKind::kNumberChoice, "mcla_pedestrians", "PEDESTRIANS", nullptr, nullptr,
      kDensityScales, 5, "%.2g", "NONE"},
     {"PM_MxParked", ItemKind::kNumberChoice, "mcla_parked_cars", "PARKED CARS", nullptr, nullptr,
@@ -542,7 +542,7 @@ void ApplyGraphicsPreset(const char* preset) {
   const bool balanced = std::strcmp(preset, "balanced") == 0;
   const char* quality = performance ? "0.25" : balanced ? "0.75" : "1.0";
   const char* density = performance ? "0.25" : balanced ? "0.75" : "1.0";
-  const char* traffic_distance = performance ? "150" : balanced ? "325" : "400";
+  const char* traffic_distance = performance ? "100" : balanced ? "325" : "400";
 
   OptionSet("mcla_shadows", performance ? "false" : "true");
   OptionSet("mcla_race_shadows", performance ? "false" : "true");
