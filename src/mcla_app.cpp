@@ -332,7 +332,25 @@ void MclaApp::OnPreSetup(rex::RuntimeConfig& config) {
 
 void MclaApp::OnPostSetup() {
   ConfigureFrameTiming();
-
+#if defined(__ANDROID__)
+  REXLOG_INFO(
+      "android settings: backend={}, preset={}, guest={}x{}, fps={}, shadows={}, city_lod={}, "
+      "traffic_lod={}, traffic_distance={}, pedestrians={}, parked_cars={}, single_tile={}, "
+      "fence_yield={}",
+      rex::cvar::GetFlagByName("mcla_gpu_backend"),
+      rex::cvar::GetFlagByName("mcla_graphics_preset"),
+      rex::cvar::GetFlagByName("video_mode_width"),
+      rex::cvar::GetFlagByName("video_mode_height"),
+      rex::cvar::GetFlagByName("mcla_fps"),
+      rex::cvar::GetFlagByName("mcla_shadows"),
+      rex::cvar::GetFlagByName("mcla_city_lod"),
+      rex::cvar::GetFlagByName("mcla_traffic_lod"),
+      rex::cvar::GetFlagByName("mcla_traffic_distance"),
+      rex::cvar::GetFlagByName("mcla_pedestrians"),
+      rex::cvar::GetFlagByName("mcla_parked_cars"),
+      rex::cvar::GetFlagByName("mcla_single_tile"),
+      rex::cvar::GetFlagByName("mcla_fence_yield"));
+#endif
 
   // The game probes for loose city data on a "t:" drive that retail consoles
   // do not have. Give it a device so the probes fail with "not found" rather
