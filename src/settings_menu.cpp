@@ -541,7 +541,7 @@ void ApplyGraphicsPreset(const char* preset) {
   const bool performance = std::strcmp(preset, "performance") == 0;
   const bool balanced = std::strcmp(preset, "balanced") == 0;
   const char* quality = performance ? "0.25" : balanced ? "0.75" : "1.0";
-  const char* density = performance ? "0.25" : balanced ? "0.75" : "1.0";
+  const char* density = performance ? "0.0" : balanced ? "0.75" : "1.0";
   const char* traffic_distance = performance ? "100" : balanced ? "325" : "400";
 
   OptionSet("mcla_shadows", performance ? "false" : "true");

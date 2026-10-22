@@ -52,8 +52,8 @@ REXCVAR_DEFINE_DOUBLE(mcla_traffic_lod, MCLA_DEFAULT(1.0, 0.25), "MCLA",
 REXCVAR_DEFINE_DOUBLE(mcla_traffic_distance, MCLA_DEFAULT(400.0, 100.0), "MCLA",
                       "Distance in metres beyond which ambient traffic is removed (400 as shipped)")
     .range(100.0, 600.0);
-REXCVAR_DEFINE_DOUBLE(mcla_pedestrians, MCLA_DEFAULT(1.0, 0.25), "MCLA", "Pedestrian density scale").range(0.0, 1.0);
-REXCVAR_DEFINE_DOUBLE(mcla_parked_cars, MCLA_DEFAULT(1.0, 0.25), "MCLA", "Parked car density scale").range(0.0, 1.0);
+REXCVAR_DEFINE_DOUBLE(mcla_pedestrians, MCLA_DEFAULT(1.0, 0.0), "MCLA", "Pedestrian density scale").range(0.0, 1.0);
+REXCVAR_DEFINE_DOUBLE(mcla_parked_cars, MCLA_DEFAULT(1.0, 0.0), "MCLA", "Parked car density scale").range(0.0, 1.0);
 
 // For measuring what an option is worth. The title screen's camera wanders, so
 // two runs never show the same scene; this switches the named option between
@@ -245,8 +245,8 @@ void SetReduced(const std::string& what, bool reduced) {
   }
   if (all || what == "density") {
     rex::cvar::SetFlagByName("mcla_traffic_distance", reduced ? "100" : "400");
-    rex::cvar::SetFlagByName("mcla_pedestrians", reduced ? "0.25" : "1.0");
-    rex::cvar::SetFlagByName("mcla_parked_cars", reduced ? "0.25" : "1.0");
+    rex::cvar::SetFlagByName("mcla_pedestrians", reduced ? "0.0" : "1.0");
+    rex::cvar::SetFlagByName("mcla_parked_cars", reduced ? "0.0" : "1.0");
   }
 }
 

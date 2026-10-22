@@ -63,4 +63,18 @@ initialization, compatibility casts, and similar upstream declarations), not
 from the app source. This is static analysis; it does not replace a fresh
 runtime capture from the current binary.
 
+## Performance preset adjustment — 2026-10-22
+
+The Android Performance preset now sets pedestrian and parked-car density to
+zero instead of 25%; the Android defaults match, and the development density
+A/B switch tests the same reduced setting. This removes ambient pedestrian and
+parked-car populations that add guest simulation and draw work. The existing
+settings menu still lets players restore either population. The change was
+compiled into `libmain.so` with the S23 Termux Android build; the 77 MiB ELF
+has SHA-256
+`a872e33f66707b905dfcbee94a14a4db72d7475c0f4059856727541b30d40171`.
+This is a targeted optimization hypothesis, not a measured FPS gain. The
+current ADB endpoint refused connections, so the installed older runtime
+cannot validate this source change yet. No APK was produced or installed.
+
 No APK was generated or installed as part of this analysis.
