@@ -59,7 +59,7 @@ On the next launch, the launcher exports the previous runtime's rotating log fil
 On Android, runtime logs also record a sample every 10 seconds: estimated UI render-loop FPS, p95 and maximum frame interval, and process VmRSS from `/proc/self/status`. This is an approximate render-loop metric, not a Vulkan-presented FPS measurement or Android PSS.
 The Android frame-timer hook also logs guest frame-tick rate, p95 and maximum tick interval, and average draw calls per tick every 10 seconds. It measures game-loop cadence, not successful Vulkan presents.
 
-Android Vulkan shader warm-up defaults to two background pipeline workers to reduce CPU contention with emulation and rendering. This changes warm-up concurrency; it does not guarantee a higher steady-state FPS.
+Android Vulkan shader warm-up defaults to two background pipeline workers. When incomplete-frame skipping is enabled (the ReXGlue default), the Android build leaves queued pipeline compilation on those workers instead of draining and waiting for it at every GPU submission. Frames that use a placeholder are still skipped; this can trade temporary skipped frames during warm-up for less blocking of the emulation thread. Runtime gains still need to be measured on the S23.
 
 The Android guest video mode defaults to 540p to reduce pixel work, with the presenter scaling it to the phone display. This only helps if the game follows the Xbox video mode; it does not reduce CPU-side simulation or draw-call work. The current Android build uses bilinear scaling, so 540p may look softer than 720p. We still need an on-device frame-time comparison before claiming an FPS gain. ReXGlue's separate render-target scale remains 1x or higher.
 

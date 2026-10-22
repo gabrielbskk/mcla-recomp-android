@@ -101,6 +101,51 @@ PIPELINE_THREAD_DEFAULTS = (
     "    vulkan_pipeline_creation_threads, kDefaultVulkanPipelineCreationThreads, \"GPU/Vulkan\",\n",
 )
 
+PIPELINE_SUBMISSION_WAIT = (
+    "      // Help worker threads on the processor thread to reduce warm-up latency.\n"
+    "      CreateQueuedPipelinesOnProcessorThread();\n"
+    "      bool await_creation_completion_event;\n"
+    "      {\n"
+    "        std::lock_guard<std::mutex> lock(creation_request_lock_);\n"
+    "        // The queue is empty because of CreateQueuedPipelinesOnProcessorThread,\n"
+    "        // only check in-flight creation by worker threads.\n"
+    "        await_creation_completion_event = creation_threads_busy_ != 0;\n"
+    "        if (await_creation_completion_event) {\n"
+    "          creation_completion_event_->Reset();\n"
+    "          creation_completion_set_event_ = true;\n"
+    "        }\n"
+    "      }\n"
+    "      if (await_creation_completion_event) {\n"
+    "        creation_request_cond_.notify_one();\n"
+    "        rex::thread::Wait(creation_completion_event_.get(), false);\n"
+    "      }",
+    "#if REX_PLATFORM_ANDROID\n"
+    "      // IssueSwap discards frames that used placeholders. Let the creation\n"
+    "      // workers finish asynchronously instead of draining or joining them here.\n"
+    "      if (!REXCVAR_GET(vulkan_async_skip_incomplete_frames)) {\n"
+    "#endif\n"
+    "        // Help worker threads on the processor thread to reduce warm-up latency.\n"
+    "        CreateQueuedPipelinesOnProcessorThread();\n"
+    "        bool await_creation_completion_event;\n"
+    "        {\n"
+    "          std::lock_guard<std::mutex> lock(creation_request_lock_);\n"
+    "          // The queue is empty because of CreateQueuedPipelinesOnProcessorThread,\n"
+    "          // only check in-flight creation by worker threads.\n"
+    "          await_creation_completion_event = creation_threads_busy_ != 0;\n"
+    "          if (await_creation_completion_event) {\n"
+    "            creation_completion_event_->Reset();\n"
+    "            creation_completion_set_event_ = true;\n"
+    "          }\n"
+    "        }\n"
+    "        if (await_creation_completion_event) {\n"
+    "          creation_request_cond_.notify_one();\n"
+    "          rex::thread::Wait(creation_completion_event_.get(), false);\n"
+    "        }\n"
+    "#if REX_PLATFORM_ANDROID\n"
+    "      }\n"
+    "#endif",
+)
+
 
 
 def main() -> None:
@@ -126,6 +171,19 @@ def main() -> None:
         print("Set Android Vulkan shader compilation to two background workers by default.")
     else:
         print("Android Vulkan shader compilation worker default already applied.")
+
+    pipeline_text = pipeline_cache.read_text(encoding="utf-8")
+    original, patched = PIPELINE_SUBMISSION_WAIT
+    if patched not in pipeline_text:
+        if pipeline_text.count(original) != 1:
+            raise SystemExit(
+                "Expected one Vulkan pipeline submission wait block; SDK may have changed: "
+                f"{pipeline_cache}"
+            )
+        pipeline_cache.write_text(pipeline_text.replace(original, patched, 1), encoding="utf-8")
+        print("Kept Android async pipeline creation off the graphics submission thread.")
+    else:
+        print("Android async pipeline submission behavior already applied.")
 
     text = source.read_text(encoding="utf-8")
     changed = False
