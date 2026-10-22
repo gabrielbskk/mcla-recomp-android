@@ -51,4 +51,16 @@ a run from the current source with the per-thread CPU and texture-cache memory
 sampling enabled. The old exported logs predate those probes. Do not package or
 install an APK for this step unless the user requests it.
 
+## Current static audit — 2026-10-22
+
+Cppcheck 2.22 analyzed all 14 app C++ source files with Android and AArch64
+predefined. It reported no project-source null dereference, bounds, or
+performance diagnostics. The sole remaining project-source diagnostic is
+`duplInheritedMember` for the `FallbackAudioSystem::Create` static factory,
+which intentionally provides the Android fallback factory with the same name
+as the inherited SDL factory. Other warnings came from SDK headers (aggregate
+initialization, compatibility casts, and similar upstream declarations), not
+from the app source. This is static analysis; it does not replace a fresh
+runtime capture from the current binary.
+
 No APK was generated or installed as part of this analysis.
