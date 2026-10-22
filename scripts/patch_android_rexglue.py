@@ -173,6 +173,33 @@ PIPELINE_CREATION_LOGS = (
     "  }",
 )
 
+TEXTURE_CACHE_MEMORY_SAMPLE = (
+    "  if (destroyed_any) {\n"
+    "    COUNT_profile_set(\"gpu/texture_cache/textures\", textures_.size());\n"
+    "  }\n"
+    "}\n\n"
+    "void TextureCache::BeginSubmission",
+    "  if (destroyed_any) {\n"
+    "    COUNT_profile_set(\"gpu/texture_cache/textures\", textures_.size());\n"
+    "  }\n"
+    "#if defined(__ANDROID__)\n"
+    "  // Pair with the application's VmRSS sample to compare texture-cache\n"
+    "  // growth from other process or Vulkan-driver allocations.\n"
+    "  static uint64_t last_android_memory_sample_ms = 0;\n"
+    "  if (!last_android_memory_sample_ms ||\n"
+    "      current_time - last_android_memory_sample_ms >= 10'000) {\n"
+    "    last_android_memory_sample_ms = current_time;\n"
+    "    const uint64_t texture_memory_mb =\n"
+    "        (textures_total_host_memory_usage_ + ((UINT32_C(1) << 20) - 1)) >> 20;\n"
+    "    REXLOG_INFO(\"android texture cache: {} MiB estimated allocation, {} entries \"\n"
+    "                \"(soft limit {} MiB, hard limit {} MiB)\",\n"
+    "                texture_memory_mb, textures_.size(), limit_soft_mb, limit_hard_mb);\n"
+    "  }\n"
+    "#endif\n"
+    "}\n\n"
+    "void TextureCache::BeginSubmission",
+)
+
 
 
 def main() -> None:
@@ -224,6 +251,22 @@ def main() -> None:
         print("Reduced Android Vulkan pipeline creation logs from info to debug.")
     else:
         print("Android Vulkan pipeline creation logs are already debug-only.")
+
+    texture_cache = args.sdk / "src/graphics/pipeline/texture/cache.cpp"
+    if not texture_cache.is_file():
+        raise SystemExit(f"ReXGlue texture cache source not found: {texture_cache}")
+    texture_text = texture_cache.read_text(encoding="utf-8")
+    original, patched = TEXTURE_CACHE_MEMORY_SAMPLE
+    if patched not in texture_text:
+        if texture_text.count(original) != 1:
+            raise SystemExit(
+                "Expected one texture-cache eviction/report block; SDK may have changed: "
+                f"{texture_cache}"
+            )
+        texture_cache.write_text(texture_text.replace(original, patched, 1), encoding="utf-8")
+        print("Added an Android-only texture-cache memory sample every 10 seconds.")
+    else:
+        print("Android texture-cache memory sampling is already applied.")
 
     text = source.read_text(encoding="utf-8")
     changed = False

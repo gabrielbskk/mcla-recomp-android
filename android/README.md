@@ -57,7 +57,9 @@ The Android native C++ targets use `-O3` for the `RelWithDebInfo` release config
 
 On the next launch, the launcher exports the previous runtime's rotating log files and an Android process-exit report (including the system trace when available) to `Documents/MCLA Recomp`. The report includes device model, Android version, app version, and the prior process exit reason. Export failures do not block startup.
 On Android, runtime logs also record a sample every 10 seconds: estimated UI render-loop FPS, p95 and maximum frame interval, and process VmRSS from `/proc/self/status`. This is an approximate render-loop metric, not a Vulkan-presented FPS measurement or Android PSS.
-The Android frame-timer hook also logs guest frame-tick rate, p95 and maximum tick interval, and average draw calls per tick every 10 seconds. It measures game-loop cadence, not successful Vulkan presents.
+The Android frame-timer hook also logs guest frame-tick rate, p95 and maximum tick interval every 10 seconds. It measures game-loop cadence, not successful Vulkan presents. ReXGlue's draw-call counter is not instrumented by its Vulkan backend, so it is not used as an Android measurement.
+
+The Android ReXGlue patch logs estimated Vulkan texture-cache allocation size, entry count, and soft/hard cache limits every 10 seconds. Compare it with VmRSS for context; VMA allocation size, process resident memory, and total GPU memory are different measurements.
 
 Android Vulkan shader warm-up defaults to two background pipeline workers. When incomplete-frame skipping is enabled (the ReXGlue default), the Android build leaves queued pipeline compilation on those workers instead of draining and waiting for it at every GPU submission. Frames that use a placeholder are still skipped; this can trade temporary skipped frames during warm-up for less blocking of the emulation thread. Runtime gains still need to be measured on the S23.
 
