@@ -27,6 +27,13 @@ if(ANDROID)
     include_directories("${REXSDK_DIR}/thirdparty/libucontext/include"
                         "${REXSDK_DIR}/thirdparty/imgui"
                         "${REXSDK_DIR}/thirdparty/libucontext/arch/aarch64/include")
+
+    # Vulkan initialization lives in librexruntime, so its Android loader
+    # callback must be defined there as well. Keeping this in libmain.so leaves
+    # librexruntime with an unresolved MclaAndroidOpenVulkanLoader symbol.
+    target_sources(rexruntime PRIVATE src/android_gpu_driver.cpp)
+    target_include_directories(rexruntime PRIVATE third_party/libadrenotools/include)
+    target_link_libraries(rexruntime PRIVATE adrenotools)
 endif()
 
 # Sources
@@ -48,9 +55,7 @@ set(MCLA_SOURCES
 if(ANDROID)
     # SDL3 Android loads libmain.so and enters through SDL_main.
     add_library(mcla SHARED ${MCLA_SOURCES})
-    target_sources(mcla PRIVATE src/touch_controls.cpp src/android_gpu_driver.cpp)
-    target_include_directories(mcla PRIVATE third_party/libadrenotools/include)
-    target_link_libraries(mcla PRIVATE adrenotools)
+    target_sources(mcla PRIVATE src/touch_controls.cpp)
     set_target_properties(mcla PROPERTIES OUTPUT_NAME main)
     target_compile_options(mcla PRIVATE -include SDL3/SDL_main.h)
 elseif(WIN32)
